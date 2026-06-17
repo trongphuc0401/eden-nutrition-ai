@@ -3,7 +3,7 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 
-NutritionGoal = Literal["fat_loss", "muscle_gain", "healthy_living", "energy_boost"]
+NutritionGoal = Literal["overweight_obesity_weight_management"]
 
 
 class ProfileInput(BaseModel):

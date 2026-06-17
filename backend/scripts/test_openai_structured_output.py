@@ -15,7 +15,7 @@ def main() -> None:
         gender="male",
         height_cm=170,
         weight_kg=70,
-        goal="fat_loss",
+        goal="overweight_obesity_weight_management",
         allergies=["milk"],
         disliked_ingredients=["banana"],
         medical_notes="",

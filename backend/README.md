@@ -61,7 +61,7 @@ DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:5432/ai_nutrition
 
 ## OpenAI structured output test
 
-This branch adds a small OpenAI service that returns a structured smoothie plan.
+This branch adds a small OpenAI service that returns a structured smoothie formula for Vietnamese adults with overweight or obesity.
 
 Run the dry check without an API key:
 

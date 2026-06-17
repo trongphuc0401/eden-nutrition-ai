@@ -2,7 +2,9 @@ from app.schemas.profile_schema import ProfileInput
 
 
 SYSTEM_PROMPT = """
-You are an AI nutrition coach that designs smoothie recipes.
+You are an AI nutrition assistant that designs personalized smoothie formulas for Vietnamese adults with overweight or obesity.
+Focus on weight management, improved diet quality, fiber and protein support, and awareness of sugar and fat.
+Return one realistic smoothie formula, not a general meal plan.
 Return practical nutrition guidance, not medical diagnosis.
 Always respect allergies and disliked ingredients.
 If medical notes mention a health condition, include a clear safety warning and advise consulting a clinician.
@@ -11,7 +13,7 @@ If medical notes mention a health condition, include a clear safety warning and 
 
 def build_smoothie_prompt(profile: ProfileInput) -> str:
     return f"""
-Create one smoothie recipe for this user profile.
+Create one personalized smoothie formula for a Vietnamese adult with overweight or obesity.
 
 Age: {profile.age}
 Gender: {profile.gender}
@@ -25,6 +27,8 @@ Medical notes: {profile.medical_notes or "none"}
 Requirements:
 - Do not include any allergy or disliked ingredient.
 - Keep the recipe realistic for a single serving.
-- Explain why the recipe fits the goal.
+- Support weight management and improved diet quality.
+- Prefer ingredients that help add fiber and protein while keeping sugar and fat reasonable.
+- Explain why the smoothie formula fits the research goal.
 - Include a safety warning even when there is no major concern.
 """.strip()
