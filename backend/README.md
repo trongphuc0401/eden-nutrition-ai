@@ -58,3 +58,22 @@ Set `DATABASE_URL` in `.env`:
 ```txt
 DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:5432/ai_nutrition
 ```
+
+## OpenAI structured output test
+
+This branch adds a small OpenAI service that returns a structured smoothie plan.
+
+Run the dry check without an API key:
+
+```bash
+python scripts/test_openai_structured_output.py
+```
+
+To make a live OpenAI call, set these values in `.env`:
+
+```txt
+OPENAI_API_KEY=your_api_key_here
+OPENAI_MODEL=gpt-4.1-mini
+```
+
+Then run the same script again.
