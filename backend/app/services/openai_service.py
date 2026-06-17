@@ -17,12 +17,22 @@ class OpenAIService:
 
         self.client = OpenAI(api_key=settings.openai_api_key)
 
-    def generate_smoothie_plan(self, profile: ProfileInput) -> SmoothiePlanResponse:
+    def generate_smoothie_plan(
+        self,
+        profile: ProfileInput,
+        knowledge_context: list[str] | None = None,
+    ) -> SmoothiePlanResponse:
         response = self.client.responses.parse(
             model=settings.openai_model,
             input=[
                 {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": build_smoothie_prompt(profile)},
+                {
+                    "role": "user",
+                    "content": build_smoothie_prompt(
+                        profile,
+                        knowledge_context=knowledge_context,
+                    ),
+                },
             ],
             text_format=SmoothiePlanResponse,
         )
@@ -30,5 +40,11 @@ class OpenAIService:
         return response.output_parsed
 
 
-def generate_smoothie_plan(profile: ProfileInput) -> SmoothiePlanResponse:
-    return OpenAIService().generate_smoothie_plan(profile)
+def generate_smoothie_plan(
+    profile: ProfileInput,
+    knowledge_context: list[str] | None = None,
+) -> SmoothiePlanResponse:
+    return OpenAIService().generate_smoothie_plan(
+        profile,
+        knowledge_context=knowledge_context,
+    )

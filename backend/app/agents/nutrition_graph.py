@@ -28,6 +28,14 @@ def build_nutrition_graph():
 nutrition_graph = build_nutrition_graph()
 
 
-def run_nutrition_graph(profile: ProfileInput) -> SmoothiePlanResponse:
-    result = nutrition_graph.invoke({"profile": profile})
+def run_nutrition_graph(
+    profile: ProfileInput,
+    knowledge_context: list[str] | None = None,
+) -> SmoothiePlanResponse:
+    result = nutrition_graph.invoke(
+        {
+            "profile": profile,
+            "knowledge_context": knowledge_context or [],
+        }
+    )
     return result["smoothie_plan"]

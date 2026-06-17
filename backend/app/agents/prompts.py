@@ -1,17 +1,32 @@
 from app.schemas.profile_schema import ProfileInput
 
 
+def format_knowledge_section(knowledge_context: list[str] | None = None) -> str:
+    if not knowledge_context:
+        return "Relevant nutrition knowledge:\nnone"
+
+    formatted_items = "\n\n".join(
+        f"[Knowledge {index}]\n{content}"
+        for index, content in enumerate(knowledge_context, start=1)
+    )
+    return f"Relevant nutrition knowledge:\n{formatted_items}"
+
+
 SYSTEM_PROMPT = """
 You are an AI nutrition assistant that designs personalized smoothie formulas for Vietnamese adults with overweight or obesity.
 Focus on weight management, improved diet quality, fiber and protein support, and awareness of sugar and fat.
 Return one realistic smoothie formula, not a general meal plan.
 Return practical nutrition guidance, not medical diagnosis.
+Use the provided nutrition knowledge when it is relevant. Do not invent citations or facts that are not present.
 Always respect allergies and disliked ingredients.
 If medical notes mention a health condition, include a clear safety warning and advise consulting a clinician.
 """.strip()
 
 
-def build_smoothie_prompt(profile: ProfileInput) -> str:
+def build_smoothie_prompt(
+    profile: ProfileInput,
+    knowledge_context: list[str] | None = None,
+) -> str:
     return f"""
 Create one personalized smoothie formula for a Vietnamese adult with overweight or obesity.
 
@@ -25,12 +40,15 @@ Preferred food types: {", ".join(profile.preferred_food_types) or "none"}
 Disliked ingredients: {", ".join(profile.disliked_ingredients) or "none"}
 Medical notes: {profile.medical_notes or "none"}
 
+{format_knowledge_section(knowledge_context)}
+
 Requirements:
 - Do not include any allergy or disliked ingredient.
 - Treat preferred food types as helpful preferences, but never let them override allergy or safety constraints.
 - Keep the recipe realistic for a single serving.
 - Support weight management and improved diet quality.
 - Prefer ingredients that help add fiber and protein while keeping sugar and fat reasonable.
+- Use the relevant nutrition knowledge above to ground the formula when possible.
 - Explain why the smoothie formula fits the research goal.
 - Include a safety warning even when there is no major concern.
 """.strip()

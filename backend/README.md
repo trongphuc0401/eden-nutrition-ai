@@ -91,3 +91,15 @@ The graph runs:
 ```txt
 START -> analyze_goal -> generate_smoothie_plan -> safety_check -> END
 ```
+
+## RAG pgvector dry-run test
+
+This branch adds pgvector support for `nutrition_knowledge.embedding`, OpenAI embedding creation, vector search, and prompt knowledge injection.
+
+Run the dry-run without PostgreSQL or an OpenAI API key:
+
+```bash
+python scripts/test_rag_pgvector_dry_run.py
+```
+
+For real vector search later, PostgreSQL must have the `vector` extension enabled and `nutrition_knowledge.embedding` populated.

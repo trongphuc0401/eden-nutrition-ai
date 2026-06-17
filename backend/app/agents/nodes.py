@@ -9,6 +9,7 @@ from app.services.openai_service import generate_smoothie_plan
 class NutritionGraphState(TypedDict, total=False):
     profile: ProfileInput
     goal_analysis: dict[str, Any]
+    knowledge_context: list[str]
     smoothie_plan: SmoothiePlanResponse
     safety_notes: list[str]
 
@@ -30,9 +31,13 @@ def analyze_goal(state: NutritionGraphState) -> NutritionGraphState:
 
 def generate_smoothie_plan_node(state: NutritionGraphState) -> NutritionGraphState:
     profile = state["profile"]
+    knowledge_context = state.get("knowledge_context", [])
 
     if settings.openai_api_key:
-        state["smoothie_plan"] = generate_smoothie_plan(profile)
+        state["smoothie_plan"] = generate_smoothie_plan(
+            profile,
+            knowledge_context=knowledge_context,
+        )
         return state
 
     state["smoothie_plan"] = SmoothiePlanResponse(
