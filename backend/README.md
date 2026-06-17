@@ -48,3 +48,13 @@ Expected response:
 ```json
 {"status":"ok"}
 ```
+
+## Database configuration
+
+This branch adds SQLAlchemy models and a PostgreSQL connection setting only. It does not create database migrations yet.
+
+Set `DATABASE_URL` in `.env`:
+
+```txt
+DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:5432/ai_nutrition
+```
