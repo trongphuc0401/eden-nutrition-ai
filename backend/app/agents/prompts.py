@@ -21,11 +21,13 @@ Height: {profile.height_cm} cm
 Weight: {profile.weight_kg} kg
 Goal: {profile.goal}
 Allergies: {", ".join(profile.allergies) or "none"}
+Preferred food types: {", ".join(profile.preferred_food_types) or "none"}
 Disliked ingredients: {", ".join(profile.disliked_ingredients) or "none"}
 Medical notes: {profile.medical_notes or "none"}
 
 Requirements:
 - Do not include any allergy or disliked ingredient.
+- Treat preferred food types as helpful preferences, but never let them override allergy or safety constraints.
 - Keep the recipe realistic for a single serving.
 - Support weight management and improved diet quality.
 - Prefer ingredients that help add fiber and protein while keeping sugar and fat reasonable.

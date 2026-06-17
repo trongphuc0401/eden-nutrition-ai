@@ -77,3 +77,17 @@ OPENAI_MODEL=gpt-4.1-mini
 ```
 
 Then run the same script again.
+
+## LangGraph basic flow test
+
+Run the basic nutrition graph:
+
+```bash
+python scripts/test_langgraph_flow.py
+```
+
+The graph runs:
+
+```txt
+START -> analyze_goal -> generate_smoothie_plan -> safety_check -> END
+```

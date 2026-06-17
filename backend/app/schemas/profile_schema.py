@@ -13,5 +13,6 @@ class ProfileInput(BaseModel):
     weight_kg: float = Field(gt=25, le=300)
     goal: NutritionGoal
     allergies: list[str] = Field(default_factory=list)
+    preferred_food_types: list[str] = Field(default_factory=list)
     disliked_ingredients: list[str] = Field(default_factory=list)
     medical_notes: str = ""

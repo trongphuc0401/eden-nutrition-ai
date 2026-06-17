@@ -17,6 +17,7 @@ def main() -> None:
         weight_kg=70,
         goal="overweight_obesity_weight_management",
         allergies=["milk"],
+        preferred_food_types=["Vietnamese tropical fruits", "high-fiber ingredients"],
         disliked_ingredients=["banana"],
         medical_notes="",
     )
