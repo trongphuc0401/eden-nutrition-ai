@@ -111,3 +111,37 @@ ingredient_name, category, origin_country, region, season_months, allowed_for_sm
 ```
 
 By default, vector search can be constrained to fruits with Vietnamese origin and `allowed_for_smoothie=true`.
+
+## Import Vietnamese fruit seed data
+
+This project includes a full-data seed file from the `Fruit_Data` Google Sheet:
+
+```txt
+backend/data/vietnamese_fruits_seed.json
+```
+
+The seed preserves every exported source column in `raw_columns` and `raw_values`. Normalized fields such as `ingredient_name`, `season_months`, and `nutrition_per_100g` are added only to make search and import easier.
+
+Rebuild the seed from the raw CSV export:
+
+```bash
+python scripts/build_vietnamese_fruit_seed.py
+```
+
+Preview the seed file without writing to PostgreSQL:
+
+```bash
+python scripts/import_vietnamese_fruit_data.py --dry-run
+```
+
+Import records into `nutrition_knowledge` without embeddings:
+
+```bash
+python scripts/import_vietnamese_fruit_data.py
+```
+
+Import records and create OpenAI embeddings:
+
+```bash
+python scripts/import_vietnamese_fruit_data.py --embed
+```

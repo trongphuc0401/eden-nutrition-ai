@@ -12,6 +12,17 @@ VIETNAMESE_ORIGIN_VALUES = ["Vietnam", "Viet Nam", "Việt Nam"]
 FRUIT_CATEGORY_VALUES = ["fruit", "trái cây", "trai cay"]
 
 
+def format_tags(tags: dict | list | None) -> str:
+    if not tags:
+        return "none"
+    if isinstance(tags, list):
+        return ", ".join(str(tag) for tag in tags)
+    labels = tags.get("labels")
+    if isinstance(labels, list):
+        return ", ".join(str(tag) for tag in labels)
+    return ", ".join(f"{key}={value}" for key, value in tags.items() if key != "raw_values")
+
+
 def ensure_pgvector_extension(db: Session) -> None:
     db.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
     db.commit()
@@ -28,7 +39,7 @@ def build_knowledge_embedding_text(knowledge: NutritionKnowledge) -> str:
             f"season_months: {', '.join(str(month) for month in knowledge.season_months or []) or 'unknown'}",
             f"allowed_for_smoothie: {knowledge.allowed_for_smoothie}",
             f"source: {knowledge.source or 'unknown'}",
-            f"tags: {', '.join(knowledge.tags or []) or 'none'}",
+            f"tags: {format_tags(knowledge.tags)}",
             f"content: {knowledge.content}",
         ]
     )
