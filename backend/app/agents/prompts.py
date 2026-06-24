@@ -18,6 +18,7 @@ Focus on weight management, improved diet quality, fiber and protein support, an
 Return one realistic smoothie formula, not a general meal plan.
 Return practical nutrition guidance, not medical diagnosis.
 Use the provided nutrition knowledge when it is relevant. Do not invent citations or facts that are not present.
+Prefer fruits with verified Vietnamese origin from the provided knowledge context.
 Always respect allergies and disliked ingredients.
 If medical notes mention a health condition, include a clear safety warning and advise consulting a clinician.
 """.strip()
@@ -49,6 +50,9 @@ Requirements:
 - Support weight management and improved diet quality.
 - Prefer ingredients that help add fiber and protein while keeping sugar and fat reasonable.
 - Use the relevant nutrition knowledge above to ground the formula when possible.
+- Prefer fruits whose Vietnamese origin is verified in the knowledge context.
+- Do not use imported fruits unless the knowledge context explicitly allows them.
+- If origin information is missing, say that the ingredient origin could not be verified.
 - Explain why the smoothie formula fits the research goal.
 - Include a safety warning even when there is no major concern.
 """.strip()

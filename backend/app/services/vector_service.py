@@ -8,6 +8,10 @@ from app.models.nutrition_knowledge import NutritionKnowledge
 from app.schemas.profile_schema import ProfileInput
 
 
+VIETNAMESE_ORIGIN_VALUES = ["Vietnam", "Viet Nam", "Việt Nam"]
+FRUIT_CATEGORY_VALUES = ["fruit", "trái cây", "trai cay"]
+
+
 def ensure_pgvector_extension(db: Session) -> None:
     db.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
     db.commit()
@@ -17,6 +21,12 @@ def build_knowledge_embedding_text(knowledge: NutritionKnowledge) -> str:
     return "\n".join(
         [
             f"title: {knowledge.title}",
+            f"ingredient_name: {knowledge.ingredient_name or 'unknown'}",
+            f"category: {knowledge.category or 'unknown'}",
+            f"origin_country: {knowledge.origin_country or 'unknown'}",
+            f"region: {knowledge.region or 'unknown'}",
+            f"season_months: {', '.join(str(month) for month in knowledge.season_months or []) or 'unknown'}",
+            f"allowed_for_smoothie: {knowledge.allowed_for_smoothie}",
             f"source: {knowledge.source or 'unknown'}",
             f"tags: {', '.join(knowledge.tags or []) or 'none'}",
             f"content: {knowledge.content}",
@@ -72,19 +82,42 @@ class VectorService:
         db: Session,
         profile: ProfileInput,
         limit: int = 5,
+        require_vietnamese_fruits: bool = True,
     ) -> list[NutritionKnowledge]:
         query_embedding = self.create_embedding(build_profile_search_query(profile))
         statement = (
             select(NutritionKnowledge)
             .where(NutritionKnowledge.embedding.is_not(None))
-            .order_by(NutritionKnowledge.embedding.cosine_distance(query_embedding))
-            .limit(limit)
         )
+
+        if require_vietnamese_fruits:
+            statement = statement.where(
+                NutritionKnowledge.category.in_(FRUIT_CATEGORY_VALUES),
+                NutritionKnowledge.origin_country.in_(VIETNAMESE_ORIGIN_VALUES),
+                NutritionKnowledge.allowed_for_smoothie.is_(True),
+            )
+
+        statement = statement.order_by(
+            NutritionKnowledge.embedding.cosine_distance(query_embedding)
+        ).limit(limit)
+
         return list(db.scalars(statement).all())
 
 
 def format_knowledge_context(knowledge_items: list[NutritionKnowledge]) -> list[str]:
     return [
-        f"Title: {item.title}\nSource: {item.source or 'unknown'}\nContent: {item.content}"
+        "\n".join(
+            [
+                f"Title: {item.title}",
+                f"Ingredient: {item.ingredient_name or 'unknown'}",
+                f"Category: {item.category or 'unknown'}",
+                f"Origin country: {item.origin_country or 'unknown'}",
+                f"Region: {item.region or 'unknown'}",
+                f"Season months: {', '.join(str(month) for month in item.season_months or []) or 'unknown'}",
+                f"Allowed for smoothie: {item.allowed_for_smoothie}",
+                f"Source: {item.source or 'unknown'}",
+                f"Content: {item.content}",
+            ]
+        )
         for item in knowledge_items
     ]

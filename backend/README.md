@@ -103,3 +103,11 @@ python scripts/test_rag_pgvector_dry_run.py
 ```
 
 For real vector search later, PostgreSQL must have the `vector` extension enabled and `nutrition_knowledge.embedding` populated.
+
+Vietnamese fruit origin constraints use these `nutrition_knowledge` metadata fields:
+
+```txt
+ingredient_name, category, origin_country, region, season_months, allowed_for_smoothie
+```
+
+By default, vector search can be constrained to fruits with Vietnamese origin and `allowed_for_smoothie=true`.
