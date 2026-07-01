@@ -1,0 +1,41 @@
+[
+  {
+    "rule_code": "SAFE_ALLERGY_MILK",
+    "condition_key": "milk_allergy",
+    "risk_type": "allergy",
+    "ingredient_or_nutrient": "milk,yogurt,whey",
+    "action": "block_recipe",
+    "severity": "critical",
+    "threshold_value": null,
+    "unit": null,
+    "warning_message": "Nguoi dung di ung sua can tranh sua, sua chua va whey.",
+    "source": "fallback_internal_rule",
+    "notes": "Fallback rule until research sheet is imported."
+  },
+  {
+    "rule_code": "SAFE_ALLERGY_SOY",
+    "condition_key": "soy_allergy",
+    "risk_type": "allergy",
+    "ingredient_or_nutrient": "soy,soybean,soya,soy beverage",
+    "action": "block_recipe",
+    "severity": "critical",
+    "threshold_value": null,
+    "unit": null,
+    "warning_message": "Nguoi dung di ung dau nanh can tranh nguyen lieu co nguon goc dau nanh.",
+    "source": "fallback_internal_rule",
+    "notes": "Fallback rule until research sheet is imported."
+  },
+  {
+    "rule_code": "SAFE_MEDICAL_GENERIC",
+    "condition_key": "medical_notes_present",
+    "risk_type": "clinical",
+    "ingredient_or_nutrient": "clinical_consult",
+    "action": "warn_user",
+    "severity": "high",
+    "threshold_value": null,
+    "unit": null,
+    "warning_message": "Nguoi dung co ghi chu suc khoe, can xem xet tu van chuyen gia truoc khi ap dung.",
+    "source": "fallback_internal_rule",
+    "notes": "Fallback rule until research sheet is imported."
+  }
+]

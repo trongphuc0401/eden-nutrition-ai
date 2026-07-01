@@ -3,6 +3,7 @@ from typing import Any, TypedDict
 from app.config import settings
 from app.schemas.profile_schema import ProfileInput
 from app.schemas.smoothie_schema import SmoothieIngredient, SmoothiePlanResponse
+from app.services.guardrail_service import find_conflicting_ingredients
 from app.services.openai_service import generate_smoothie_plan
 
 
@@ -76,12 +77,8 @@ def safety_check(state: NutritionGraphState) -> NutritionGraphState:
     profile = state["profile"]
     plan = state["smoothie_plan"]
     blocked_terms = [*profile.allergies, *profile.disliked_ingredients]
-    ingredient_names = [ingredient.name.lower() for ingredient in plan.ingredients]
-    conflicts = [
-        term
-        for term in blocked_terms
-        if term and any(term.lower() in ingredient for ingredient in ingredient_names)
-    ]
+    ingredient_names = [ingredient.name for ingredient in plan.ingredients]
+    conflicts = find_conflicting_ingredients(ingredient_names, blocked_terms)
 
     state["safety_notes"] = []
     if conflicts:

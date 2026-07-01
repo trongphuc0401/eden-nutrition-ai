@@ -37,6 +37,56 @@ The API will be available at:
 http://127.0.0.1:8000
 ```
 
+Current backend endpoints:
+
+```txt
+GET  /health
+GET  /system-status
+POST /profiles/analyze
+POST /knowledge/search-preview
+POST /smoothies/generate
+POST /smoothies/evaluate
+POST /smoothies/generate-and-evaluate
+GET  /research-rules/preview
+```
+
+`/system-status` returns a readiness dashboard for P2/P3 capabilities:
+
+```txt
+openai_generation, database_persistence, vector_search,
+local_knowledge_fallback, research_rules, guardrail_and_evaluation
+```
+
+Each capability includes `status`, `ready`, `reason`, and an optional `next_action`.
+
+`/smoothies/generate` supports query params:
+
+```txt
+use_rag=true|false
+knowledge_limit=1..10
+persist_result=true|false
+```
+
+`/smoothies/evaluate` accepts this request body:
+
+```txt
+{ "profile": ProfileInput, "plan": SmoothiePlanResponse }
+```
+
+Research scope:
+
+```txt
+ProfileInput requires age >= 18.
+Smoothie generation is limited to profiles with BMI >= 25.
+Use /profiles/analyze to inspect BMI and scope classification before generation.
+```
+
+Bootstrap database tables when PostgreSQL is available:
+
+```bash
+python scripts/init_db.py
+```
+
 ## Health check
 
 ```bash
@@ -84,6 +134,71 @@ Run the basic nutrition graph:
 
 ```bash
 python scripts/test_langgraph_flow.py
+```
+
+Run the backend API flow test without starting `uvicorn`:
+
+```bash
+python scripts/test_nutrition_api_flow.py
+```
+
+Run prompt and guardrail verification:
+
+```bash
+python scripts/test_guardrail_and_prompt.py
+```
+
+Run smoothie evaluation verification:
+
+```bash
+python scripts/test_evaluation_flow.py
+python scripts/test_evaluation_edge_cases.py
+```
+
+Evaluation responses include an `evaluation_report` summary with:
+
+```txt
+score, decision, data_coverage, issues, recommendations
+```
+
+Run the combined readiness and generate/evaluate API verification:
+
+```bash
+python scripts/test_openapi_contract.py
+python scripts/test_generate_and_evaluate_api.py
+```
+
+Recommended P2/P3 verification set while P1 data is still incomplete:
+
+```bash
+python scripts/test_p2_p3_smoke.py
+```
+
+The smoke runner executes these checks in order:
+
+```txt
+compileall
+test_openapi_contract.py
+test_guardrail_and_prompt.py
+test_evaluation_edge_cases.py
+test_generate_and_evaluate_api.py
+```
+
+Run checks individually when debugging:
+
+```bash
+python -m compileall app scripts
+python scripts/test_openapi_contract.py
+python scripts/test_guardrail_and_prompt.py
+python scripts/test_evaluation_edge_cases.py
+python scripts/test_generate_and_evaluate_api.py
+```
+
+Import fallback research rules:
+
+```bash
+python scripts/import_research_rules.py --dry-run
+python scripts/import_research_rules.py
 ```
 
 The graph runs:

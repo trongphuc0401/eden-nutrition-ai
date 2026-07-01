@@ -1,0 +1,54 @@
+[
+  {
+    "threshold_code": "THR_CAL_001",
+    "goal": "overweight_obesity_weight_management",
+    "metric": "calories",
+    "min_value": 110.0,
+    "max_value": 300.0,
+    "unit": "kcal",
+    "meal_context": "single_smoothie",
+    "pass_rule": "between",
+    "source": "fallback_internal_rule",
+    "notes": "Fallback threshold until research sheet is imported.",
+    "priority": 1
+  },
+  {
+    "threshold_code": "THR_PROTEIN_001",
+    "goal": "overweight_obesity_weight_management",
+    "metric": "protein_g",
+    "min_value": 8.0,
+    "max_value": null,
+    "unit": "g",
+    "meal_context": "single_smoothie",
+    "pass_rule": "min_only",
+    "source": "fallback_internal_rule",
+    "notes": "Fallback threshold until research sheet is imported.",
+    "priority": 1
+  },
+  {
+    "threshold_code": "THR_FIBER_001",
+    "goal": "overweight_obesity_weight_management",
+    "metric": "fiber_g",
+    "min_value": 4.0,
+    "max_value": null,
+    "unit": "g",
+    "meal_context": "single_smoothie",
+    "pass_rule": "min_only",
+    "source": "fallback_internal_rule",
+    "notes": "Fallback threshold until research sheet is imported.",
+    "priority": 1
+  },
+  {
+    "threshold_code": "THR_SUGAR_001",
+    "goal": "overweight_obesity_weight_management",
+    "metric": "total_sugar_g",
+    "min_value": null,
+    "max_value": 25.0,
+    "unit": "g",
+    "meal_context": "single_smoothie",
+    "pass_rule": "max_only",
+    "source": "fallback_internal_rule",
+    "notes": "Fallback threshold until research sheet is imported.",
+    "priority": 1
+  }
+]

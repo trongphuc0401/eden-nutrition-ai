@@ -1,4 +1,4 @@
-from sqlalchemy import select, text
+from sqlalchemy import or_, select, text
 from sqlalchemy.orm import Session
 
 from openai import OpenAI
@@ -96,16 +96,18 @@ class VectorService:
         require_vietnamese_fruits: bool = True,
     ) -> list[NutritionKnowledge]:
         query_embedding = self.create_embedding(build_profile_search_query(profile))
-        statement = (
-            select(NutritionKnowledge)
-            .where(NutritionKnowledge.embedding.is_not(None))
-        )
+        statement = select(NutritionKnowledge).where(NutritionKnowledge.embedding.is_not(None))
 
         if require_vietnamese_fruits:
             statement = statement.where(
-                NutritionKnowledge.category.in_(FRUIT_CATEGORY_VALUES),
-                NutritionKnowledge.origin_country.in_(VIETNAMESE_ORIGIN_VALUES),
                 NutritionKnowledge.allowed_for_smoothie.is_(True),
+                or_(
+                    NutritionKnowledge.category.not_in(FRUIT_CATEGORY_VALUES),
+                    (
+                        NutritionKnowledge.category.in_(FRUIT_CATEGORY_VALUES)
+                        & NutritionKnowledge.origin_country.in_(VIETNAMESE_ORIGIN_VALUES)
+                    ),
+                ),
             )
 
         statement = statement.order_by(

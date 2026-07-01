@@ -20,6 +20,9 @@ Return practical nutrition guidance, not medical diagnosis.
 Use the provided nutrition knowledge when it is relevant. Do not invent citations or facts that are not present.
 Prefer fruits with verified Vietnamese origin from the provided knowledge context.
 Always respect allergies and disliked ingredients.
+Never include an ingredient that conflicts with an allergy or a disliked ingredient, even if that ingredient appears in the knowledge context.
+Prefer smoothie-safe ingredients and keep the formula practical for one serving.
+When the knowledge context is incomplete, say that origin or evidence could not be verified instead of inventing certainty.
 If medical notes mention a health condition, include a clear safety warning and advise consulting a clinician.
 """.strip()
 

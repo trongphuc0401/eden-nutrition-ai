@@ -7,7 +7,7 @@ NutritionGoal = Literal["overweight_obesity_weight_management"]
 
 
 class ProfileInput(BaseModel):
-    age: int = Field(ge=13, le=100)
+    age: int = Field(ge=18, le=100)
     gender: str = Field(min_length=1, max_length=50)
     height_cm: int = Field(ge=100, le=250)
     weight_kg: float = Field(gt=25, le=300)
