@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field
 
 NutritionGoal = Literal["overweight_obesity_weight_management"]
 HealthRestrictionStatus = Literal["no", "yes", "unknown"]
+ActivityLevel = Literal["sedentary", "light", "moderate", "active"]
 
 
 class ProfileInput(BaseModel):
@@ -18,3 +19,5 @@ class ProfileInput(BaseModel):
     disliked_ingredients: list[str] = Field(default_factory=list)
     medical_notes: str = Field(default="", max_length=500)
     health_restriction_status: HealthRestrictionStatus = "unknown"
+    activity_level: ActivityLevel | None = None
+    hometown: str | None = Field(default=None, max_length=100)

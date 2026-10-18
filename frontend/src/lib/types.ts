@@ -1,8 +1,11 @@
 export type GenerationStatus = "idle" | "generating" | "completed" | "review" | "blocked" | "error" | "stopped";
 
+export type ActivityLevel = "sedentary" | "light" | "moderate" | "active";
+
 export type Profile = {
   age: number; gender: string; heightCm: number; weightKg: number; hometown: string;
   allergies: string[]; dislikes: string[]; preferences: string[]; notes: string;
+  activityLevel: ActivityLevel;
   healthRestrictionStatus: "no" | "yes" | "unknown";
 };
 

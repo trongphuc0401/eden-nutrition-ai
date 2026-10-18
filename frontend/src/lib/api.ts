@@ -34,9 +34,11 @@ export async function logout(): Promise<void> {
   await fetch(`${apiUrl}/v1/auth/logout`, { method: "POST", credentials: "include" });
 }
 
-export async function getIngredients(month: number): Promise<Ingredient[]> {
+export async function getIngredients(month: number, hometown?: string): Promise<Ingredient[]> {
   if (demoMode) return ingredients;
-  const response = await request<{ items: Array<Omit<Ingredient, "emoji">> }>(`/v1/ingredients?month=${month}`);
+  // hometown selects the climate zone (north / central / south) used for "đang mùa"
+  const region = hometown ? `&hometown=${encodeURIComponent(hometown)}` : "";
+  const response = await request<{ items: Array<Omit<Ingredient, "emoji">> }>(`/v1/ingredients?month=${month}${region}`);
   return response.items.map((item) => ({ ...item, emoji: "🍊" }));
 }
 

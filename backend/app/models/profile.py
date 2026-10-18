@@ -19,6 +19,8 @@ class UserProfile(Base):
     weight_kg: Mapped[float] = mapped_column(Numeric(5, 2))
     goal: Mapped[str] = mapped_column(String(50))
     allergies: Mapped[list[str]] = mapped_column(ARRAY(String), default=list)
+    activity_level: Mapped[str | None] = mapped_column(String(50))
+    allergy_condition_codes: Mapped[list[str]] = mapped_column(ARRAY(String), default=list)
     disliked_ingredients: Mapped[list[str]] = mapped_column(ARRAY(String), default=list)
     medical_notes: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

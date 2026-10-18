@@ -199,9 +199,12 @@ def frontend_bootstrap() -> FrontendBootstrapResponse:
 
 
 @app.get("/v1/ingredients")
-def list_frontend_ingredients(month: int = Query(default=0, ge=0, le=12)) -> dict:
-    """Read-only ingredient catalog for the Next.js selector."""
-    return {"month": month or None, "items": build_ingredient_catalog(month or None)}
+def list_frontend_ingredients(
+    month: int = Query(default=0, ge=0, le=12),
+    hometown: str | None = Query(default=None, max_length=100),
+) -> dict:
+    """Read-only ingredient catalog for the Next.js selector; `hometown` picks the climate zone for seasonality."""
+    return {"month": month or None, "items": build_ingredient_catalog(month or None, hometown)}
 
 
 @app.post("/v1/generations", deprecated=True, dependencies=[Depends(require_user)])

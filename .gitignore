@@ -29,3 +29,4 @@ backend/.langgraph_api/
 docs/_render_tester_handbook/
 frontend/.env*.local
 .vercel/
+backend/data/workbook/

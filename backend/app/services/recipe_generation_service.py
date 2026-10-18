@@ -5,6 +5,7 @@ import math
 import re
 import time
 import urllib.request
+from datetime import datetime
 from urllib.error import HTTPError, URLError
 from typing import Any
 
@@ -12,8 +13,9 @@ from pydantic import ValidationError
 
 from app.config import settings
 from app.schemas.report_schema import RecipeProposal
-from app.services.report_calculation_service import default_amount
-from app.services.report_data_service import load_ingredient_index, slugify
+from app.services.personalization_service import describe, energy_plan, months_for, region_scope
+from app.services.report_calculation_service import default_amount, ml_supported
+from app.services.report_data_service import condition_keywords, load_ingredient_index, slugify
 
 
 PROMPT_VERSION = "report-recipe-v1"
@@ -53,6 +55,11 @@ def blocked_ingredient_ids(profile: dict[str, Any]) -> set[str]:
     for group, aliases in ALLERGEN_ALIASES.items():
         if normalized.intersection({slugify(alias) for alias in aliases}):
             allergen_groups.add(group)
+    # Supabase health_conditions: "dị ứng đậu nành" / "kiwi" -> soy_allergy / kiwi_allergy, matched on whole words
+    allergy_terms = {f"-{slugify(str(term))}-" for term in profile.get("allergies", []) if str(term).strip()}
+    for code, keywords in condition_keywords().items():
+        if any(f"-{slugify(keyword)}-" in term for keyword in keywords if slugify(keyword) for term in allergy_terms):
+            allergen_groups.add(code)
 
     blocked: set[str] = set()
     for item in index.values():
@@ -111,14 +118,27 @@ def _prompt(
 ) -> str:
     blocked = blocked_ingredient_ids(profile)
     selected_ids = [item["ingredient_id"] for item in selected]
+    month = datetime.now().month
+    scope = region_scope(profile.get("hometown"))
+    plan = energy_plan(profile)
+    candidates = [
+        item for item in _canonical_catalog()
+        if item["ingredient_id"] not in blocked and item["ingredient_id"] not in rejected_ids
+    ]
+    # Most complete, in-season data first so the 80-item cap drops the weakest candidates.
+    candidates.sort(key=lambda item: (
+        -sum(value is not None for value in item["per_100g"].values()),
+        month not in (months_for(item, scope) or [month]),
+    ))
     catalog = [
         {
             "ingredient_id": item["ingredient_id"],
             "name": item["name"],
             "nutrition_data_available": any(value is not None for value in item["per_100g"].values()),
+            "units": ["g", "ml"] if ml_supported(item) else ["g"],
+            **({"in_season": month in months_for(item, scope)} if months_for(item, scope) else {}),
         }
-        for item in _canonical_catalog()
-        if item["ingredient_id"] not in blocked and item["ingredient_id"] not in rejected_ids
+        for item in candidates
     ][:80]
     schema_example = {
         "version": 1,
@@ -134,12 +154,15 @@ def _prompt(
     }
     return "\n".join(
         [
-            "Bạn đề xuất công thức sinh tố bữa phụ cho người trưởng thành BMI >= 25.",
+            "Bạn đề xuất công thức sinh tố bữa phụ cho người trưởng thành thừa cân hoặc béo phì.",
             "Chỉ dùng ingredient_id có trong catalog. Không tự tính hoặc viết calories/macro.",
+            "Mỗi nguyên liệu chỉ dùng đơn vị nằm trong 'units' của catalog (chất lỏng không có mật độ phải cân bằng g).",
             "Không dùng nguyên liệu bị chặn. Tổng tối đa 8 nguyên liệu; lượng là toàn bộ công thức.",
             "Nếu input không đủ hoặc không thể tạo công thức hợp lệ, điền unable_reason.",
             f"Có thể đề nghị bổ sung: {allow_suggestions}. Mọi ID bổ sung phải có trong suggested_ingredient_ids.",
             f"Số khẩu phần: {servings}",
+            *([f"Mục tiêu năng lượng cá nhân: {describe(plan)} Chọn định lượng hướng tới khoảng này."] if plan else []),
+            "Ưu tiên nguyên liệu in_season=true (đúng mùa tại vùng của người dùng) và nhóm thực phẩm người dùng ưa thích.",
             f"Hồ sơ tối thiểu hóa dữ liệu: {json.dumps(profile, ensure_ascii=False)}",
             f"Nguyên liệu đã chọn: {json.dumps(selected_ids, ensure_ascii=False)}",
             f"ID bị chặn/từ chối: {json.dumps(sorted(blocked.union(rejected_ids)), ensure_ascii=False)}",
@@ -216,6 +239,8 @@ def validate_proposal(
             errors.append(f"nguyên liệu bị chặn: {item.ingredient_id}")
         if not math.isfinite(item.amount) or item.amount <= 0:
             errors.append(f"định lượng không hợp lệ: {item.ingredient_id}")
+        if item.unit == "ml" and item.ingredient_id in canonical and not ml_supported(canonical[item.ingredient_id]):
+            errors.append(f"không có mật độ có nguồn để quy đổi ml cho {item.ingredient_id}; dùng đơn vị g")
         if item.unit == "ml" and item.amount > 600:
             errors.append(f"lượng chất lỏng vượt giới hạn: {item.ingredient_id}")
         if item.unit == "g" and item.amount > 400:

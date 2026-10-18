@@ -18,16 +18,35 @@ def ingredient_id(name: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", ascii_name).strip("-")
 
 
-def build_ingredient_catalog(month: int | None = None) -> list[dict[str, Any]]:
+def _seasonal(season_months: list[int], month: int) -> str:
+    return "unknown" if not season_months else ("in" if month in season_months else "out")
+
+
+def build_ingredient_catalog(month: int | None = None, hometown: str | None = None) -> list[dict[str, Any]]:
     from app.services.nutrition_service import load_local_seed
+    from app.services.personalization_service import months_for, region_scope
+    from app.services.reference_repository import get_snapshot
 
     active_month = month or datetime.now().month
     catalog: list[dict[str, Any]] = []
+    snapshot = get_snapshot()
+    if snapshot is not None:
+        # Same IDs the report pipeline resolves, so every selectable item has nutrition data behind it.
+        scope = region_scope(hometown)
+        for item in snapshot.ingredients:
+            if not item["usable"]:
+                continue
+            catalog.append({
+                "id": item["ingredient_id"], "name": item["name"], "kind": "fruit" if item["category"] == "fruit" else "support",
+                "seasonal": _seasonal(months_for(item, scope), active_month), "region": item["region"] or "Chưa có dữ liệu vùng",
+                "season_months": months_for(item, scope), "source": item["source_label"],
+            })
+        return sorted(catalog, key=lambda item: (item["seasonal"] != "in", item["kind"] != "fruit", item["name"]))
     for item in load_local_seed():
         if not item.get("allowed_for_smoothie", True):
             continue
         season_months = item.get("season_months") or []
-        seasonal = "unknown" if not season_months else ("in" if active_month in season_months else "out")
+        seasonal = _seasonal(season_months, active_month)
         name = str(item.get("ingredient_name") or item.get("title") or "")
         if name:
             catalog.append({"id": ingredient_id(name), "name": name, "kind": "fruit", "seasonal": seasonal, "region": item.get("region") or "Chưa có dữ liệu vùng", "season_months": season_months, "source": item.get("source") or "Chưa có nguồn"})

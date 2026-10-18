@@ -23,6 +23,7 @@ NODE_MESSAGES = {
     "retrieve_ingredient_data": "Đang truy xuất dữ liệu dinh dưỡng có nguồn",
     "generate_recipe": "Đang tạo công thức từ nguyên liệu đã chọn",
     "calculate_nutrition": "Đang tính dinh dưỡng theo định lượng",
+    "adjust_recipe_amounts": "Đang điều chỉnh định lượng để đạt ngưỡng",
     "safety_and_quality_gate": "Đang kiểm tra an toàn và ngưỡng",
     "compose_report": "Đang biên soạn report",
     "compose_report_with_warning": "Đang biên soạn report kèm cảnh báo",
@@ -356,7 +357,7 @@ class ReportJobService:
                 "confirmation_required": bool(state.get("confirmation_required")),
                 "quality_metadata": {
                     key: state.get("execution_metadata", {}).get(key)
-                    for key in ("ai_provider", "ai_model", "prompt_version", "repair_count", "model_usage")
+                    for key in ("ai_provider", "ai_model", "prompt_version", "repair_count", "model_usage", "recipe_adjustment")
                     if state.get("execution_metadata", {}).get(key) is not None
                 },
                 "updated_at": job["updated_at"],

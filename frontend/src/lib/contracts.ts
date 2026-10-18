@@ -11,6 +11,7 @@ export const profileSchema = z.object({
   preferences: z.array(z.string()),
   notes: z.string().max(500, "Ghi chú tối đa 500 ký tự"),
   healthRestrictionStatus: z.enum(["no", "yes", "unknown"]).default("unknown"),
+  activityLevel: z.enum(["sedentary", "light", "moderate", "active"]).default("light"),
 });
 
 export type ProfileInput = z.infer<typeof profileSchema>;

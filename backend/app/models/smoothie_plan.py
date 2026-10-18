@@ -20,6 +20,7 @@ class SmoothiePlan(Base):
     reason: Mapped[str] = mapped_column(Text)
     safety_warning: Mapped[str | None] = mapped_column(Text)
     raw_response: Mapped[dict | None] = mapped_column(JSON)
+    dataset_version_code: Mapped[str | None] = mapped_column(String(80))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     user: Mapped["User | None"] = relationship(back_populates="smoothie_plans")

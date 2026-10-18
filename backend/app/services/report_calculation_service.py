@@ -6,12 +6,49 @@ from app.services.report_data_service import load_thresholds
 
 
 NUTRIENTS = ("calories", "protein", "carbohydrate", "fat", "fiber", "sugar", "sodium")
+KCAL_PER_G = {"protein": 4, "carbohydrate": 4, "fat": 9}
+
+
+def _threshold_value(totals: dict[str, float | None], key: str, basis: str) -> float | None:
+    """Per-serving value a threshold is checked against; percent_energy = share of the serving's kcal."""
+    value = totals.get(key)
+    if basis != "percent_energy":
+        return value
+    calories = totals.get("calories")
+    if value is None or not calories or key not in KCAL_PER_G:
+        return None
+    return round(value * KCAL_PER_G[key] / calories * 100, 1)
+
+
+def _within(value: float, minimum: float | None, maximum: float | None, comparator: str | None) -> bool:
+    if comparator == "gt":
+        return minimum is None or value > minimum
+    if comparator == "gte":
+        return minimum is None or value >= minimum
+    if comparator == "lt":
+        return maximum is None or value < maximum
+    if comparator == "lte":
+        return maximum is None or value <= maximum
+    return (minimum is None or value >= minimum) and (maximum is None or value <= maximum)
+
+
+def ml_supported(ingredient: dict[str, Any]) -> bool:
+    """ml can only be converted when the data is per 100 ml or a sourced density exists."""
+    return ingredient.get("nutrition_basis") == "per_100ml" or (
+        ingredient.get("density_g_per_ml") is not None and bool(ingredient.get("density_source"))
+    )
+
+
+def _is_liquid_base(ingredient: dict[str, Any]) -> bool:
+    name = str(ingredient.get("name") or "").lower()
+    return ingredient["ingredient_id"] == "sua-dau-nanh" or ingredient.get("category") in {"liquid", "dairy"} or name.startswith(("sữa", "nước"))
 
 
 def default_amount(ingredient: dict[str, Any], count: int) -> tuple[float, str]:
     ingredient_id = ingredient["ingredient_id"]
-    if ingredient_id == "sua-dau-nanh":
-        return 200.0, "ml"
+    if _is_liquid_base(ingredient):
+        # Without a sourced density, weigh the liquid instead of guessing ml -> g.
+        return 200.0, "ml" if ml_supported(ingredient) else "g"
     if ingredient_id == "hat-chia":
         return 12.0, "g"
     if ingredient_id == "yen-mach":
@@ -44,7 +81,7 @@ def build_recipe(ingredients: list[dict[str, Any]], servings: int, goal: str) ->
     }
 
 
-def calculate_nutrition(recipe: dict[str, Any]) -> dict[str, Any]:
+def calculate_nutrition(recipe: dict[str, Any], rules: list[dict[str, Any]] | None = None) -> dict[str, Any]:
     servings = max(int(recipe.get("servings", 1)), 1)
     recipe_sums = {key: 0.0 for key in NUTRIENTS}
     missing_by_nutrient = {key: False for key in NUTRIENTS}
@@ -103,20 +140,22 @@ def calculate_nutrition(recipe: dict[str, Any]) -> dict[str, Any]:
     }
     thresholds = []
     needs_review = bool(missing)
-    for rule in load_thresholds():
+    for rule in (load_thresholds() if rules is None else rules):
         key = rule["nutrient"]
-        value = rounded_totals.get(key)
+        value = _threshold_value(rounded_totals, key, rule.get("basis", "absolute"))
         minimum = rule.get("minimum")
         maximum = rule.get("maximum")
-        passed = value is not None and (minimum is None or value >= minimum) and (maximum is None or value <= maximum)
+        passed = value is not None and _within(value, minimum, maximum, rule.get("comparator"))
         status = "pass" if passed else ("unknown" if value is None else "review")
         if status != "pass":
             needs_review = True
+        strict = rule.get("comparator") in ("gt", "lt")
         expected = []
-        if minimum is not None:
-            expected.append(f"≥ {minimum}")
-        if maximum is not None:
-            expected.append(f"≤ {maximum}")
+        if minimum is not None and rule.get("comparator") not in ("lte", "lt"):
+            expected.append(f"{'>' if strict else '≥'} {minimum:g}")
+        if maximum is not None and rule.get("comparator") not in ("gte", "gt"):
+            expected.append(f"{'<' if strict else '≤'} {maximum:g}")
+        code = rule.get("code")
         thresholds.append({
             "nutrient": rule.get("label", key),
             "value": value,
@@ -124,7 +163,8 @@ def calculate_nutrition(recipe: dict[str, Any]) -> dict[str, Any]:
             "minimum": minimum,
             "maximum": maximum,
             "status": status,
-            "message": "Đạt ngưỡng demo" if passed else f"Cần xem lại (mục tiêu {' và '.join(expected)})",
+            "message": (f"Đạt ngưỡng {code}" if code else "Đạt ngưỡng demo") if passed
+            else f"Cần xem lại (mục tiêu {' và '.join(expected)})",
         })
     return {
         "totals": rounded_totals,

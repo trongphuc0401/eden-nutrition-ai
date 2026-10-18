@@ -22,5 +22,7 @@ class NutritionKnowledge(Base):
     content: Mapped[str] = mapped_column(Text)
     source: Mapped[str | None] = mapped_column(String(255))
     tags: Mapped[dict | list | None] = mapped_column(JSON)
+    ingredient_id: Mapped[UUID | None] = mapped_column(index=True)
+    dataset_version_code: Mapped[str | None] = mapped_column(String(80))
     embedding: Mapped[list[float] | None] = mapped_column(Vector(1536))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

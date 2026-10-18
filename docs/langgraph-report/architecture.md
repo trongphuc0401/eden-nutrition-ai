@@ -27,6 +27,7 @@ flowchart LR
 | `retrieve_ingredient_data` | nguyên liệu đã chọn | số liệu/nguồn trên 100 g | Có, tối đa 3 |
 | `generate_recipe` | nguyên liệu và mục tiêu | định lượng, tối đa 6 bước | Có, tối đa 2 |
 | `calculate_nutrition` | định lượng + dữ liệu nguồn | tổng và đóng góp từng nguyên liệu | Không; code xác định |
+| `adjust_recipe_amounts` | phép tính có ngưỡng `review` | định lượng mới (giữ nguyên nguyên liệu, trong giới hạn ≤400 g/≤600 ml), tối đa 2 vòng; bỏ qua khi thiếu dữ liệu | Không; code xác định |
 | `safety_and_quality_gate` | phép tính + hồ sơ | `pass`, `review` hoặc `reject` | Không |
 | `compose_report*` | toàn bộ kết quả | `NutritionReportDocument` độc lập PDF | Không |
 | `render_pdf` | report document | PDF metadata/hash | Không |
@@ -42,7 +43,8 @@ flowchart TD
   G -->|cần bổ sung| W[awaiting_confirmation]
   W -->|xác nhận theo proposal version| G
   G --> C[calculate_nutrition]
-  C --> S[safety_and_quality_gate]
+  C --> ADJ[adjust_recipe_amounts]
+  ADJ --> S[safety_and_quality_gate]
   S -->|reject| E
   S -->|review| CW[compose_report_with_warning]
   S -->|pass| CP[compose_report]

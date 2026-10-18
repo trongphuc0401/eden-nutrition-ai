@@ -6,6 +6,8 @@ import unicodedata
 from pathlib import Path
 from typing import Any
 
+from app.services.reference_repository import ReferenceSnapshot, get_snapshot
+
 
 APP_DATA_DIR = Path(__file__).resolve().parents[1] / "data"
 BACKEND_DATA_DIR = Path(__file__).resolve().parents[2] / "data"
@@ -91,7 +93,50 @@ def _normalise_record(record: dict[str, Any], default_region: str) -> dict[str, 
     }
 
 
+def _fallback_records() -> list[dict[str, Any]]:
+    fallback_path = APP_DATA_DIR / "report_nutrition_fallback.json"
+    return [item for row in _records(_read_json(fallback_path)) if (item := _normalise_record(row, "international")) is not None]
+
+
+def _index(candidates: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    index: dict[str, dict[str, Any]] = {}
+    for item in candidates:
+        keys = {item["ingredient_id"], slugify(item["name"])}
+        keys.update(slugify(alias) for alias in item.get("aliases", []))
+        for key in keys:
+            index.setdefault(key, item)  # earlier sources win: Supabase / Vietnamese rows first.
+    return index
+
+
+def _database_index(snapshot: ReferenceSnapshot) -> dict[str, dict[str, Any]]:
+    """Supabase rows first; the international fallback only fills ingredients the workbook lacks (oats, chia...).
+
+    When both describe the same ingredient, Supabase nutrients win but the fallback's sourced ml->g density is kept,
+    because the workbook has no density column.
+    """
+    fallback = {item["ingredient_id"]: item for item in _fallback_records()}
+    db_items = []
+    for item in snapshot.ingredients:
+        if not item["allowed_for_smoothie"]:
+            continue
+        extra = fallback.get(item["ingredient_id"])
+        if extra and extra.get("density_g_per_ml") is not None and item.get("density_g_per_ml") is None:
+            item = {**item, "density_g_per_ml": extra["density_g_per_ml"], "density_source": extra.get("density_source")}
+        db_items.append(item)
+    return _index([*db_items, *fallback.values()])
+
+
+def reference_metadata() -> dict[str, Any]:
+    snapshot = get_snapshot()
+    if snapshot is None:
+        return {"data_source": "json", "dataset_version": None}
+    return {"data_source": snapshot.source, "dataset_version": snapshot.dataset_version}
+
+
 def load_ingredient_index() -> dict[str, dict[str, Any]]:
+    snapshot = get_snapshot()
+    if snapshot is not None:
+        return _database_index(snapshot)
     candidates: list[dict[str, Any]] = []
     vietnamese_seed = BACKEND_DATA_DIR / "vietnamese_fruits_seed.json"
     if vietnamese_seed.exists():
@@ -99,18 +144,8 @@ def load_ingredient_index() -> dict[str, dict[str, Any]]:
             item for row in _records(_read_json(vietnamese_seed))
             if (item := _normalise_record(row, "VN")) is not None
         )
-    fallback_path = APP_DATA_DIR / "report_nutrition_fallback.json"
-    candidates.extend(
-        item for row in _records(_read_json(fallback_path))
-        if (item := _normalise_record(row, "international")) is not None
-    )
-    index: dict[str, dict[str, Any]] = {}
-    for item in candidates:
-        keys = {item["ingredient_id"], slugify(item["name"])}
-        keys.update(slugify(alias) for alias in item.get("aliases", []))
-        for key in keys:
-            index.setdefault(key, item)  # Vietnamese rows are loaded first.
-    return index
+    candidates.extend(_fallback_records())
+    return _index(candidates)
 
 
 def resolve_ingredients(ingredient_ids: list[str]) -> tuple[list[dict[str, Any]], list[str]]:
@@ -142,4 +177,28 @@ def resolve_ingredients(ingredient_ids: list[str]) -> tuple[list[dict[str, Any]]
 
 
 def load_thresholds() -> list[dict[str, Any]]:
+    snapshot = get_snapshot()
+    if snapshot is not None:
+        return [dict(rule) for rule in snapshot.thresholds]
     return _records(_read_json(APP_DATA_DIR / "report_thresholds.json"))
+
+
+def condition_keywords() -> dict[str, list[str]]:
+    snapshot = get_snapshot()
+    return dict(snapshot.condition_keywords) if snapshot is not None else {}
+
+
+def condition_types() -> dict[str, str]:
+    snapshot = get_snapshot()
+    return dict(snapshot.condition_types) if snapshot is not None else {}
+
+
+def load_safety_rules() -> list[dict[str, Any]]:
+    snapshot = get_snapshot()
+    return [dict(rule) for rule in snapshot.safety_rules] if snapshot is not None else []
+
+
+def load_profile_rules() -> list[dict[str, Any]] | None:
+    """Supabase profile_classification_rules; None when the JSON fallback is active."""
+    snapshot = get_snapshot()
+    return [dict(rule) for rule in snapshot.profile_rules] if snapshot is not None else None

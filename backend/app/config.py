@@ -30,6 +30,9 @@ class Settings(BaseSettings):
     report_job_active_timeout_seconds: int = 180
     report_job_persistence_enabled: bool = False
     report_rate_limit_per_hour: int = 10
+    reference_data_source: str = "auto"  # auto | db | json
+    reference_min_db_ingredients: int = 20
+    reference_cache_seconds: int = 300
     pdf_output_dir: str | None = None
     google_client_id: str | None = None
     google_client_secret: str | None = None

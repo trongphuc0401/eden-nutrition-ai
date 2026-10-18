@@ -1,7 +1,7 @@
 import type { Ingredient, Profile, Report } from "./types";
 
 export const defaultProfile: Profile = {
-  age: 28, gender: "Nữ", heightCm: 162, weightKg: 76, hometown: "TP. Hồ Chí Minh",
+  age: 28, gender: "Nữ", heightCm: 162, weightKg: 76, hometown: "TP. Hồ Chí Minh", activityLevel: "light",
   allergies: ["Sữa"], dislikes: ["Chuối"], preferences: ["Trái cây nhiệt đới Việt Nam", "Nhiều chất xơ"], notes: "Tiền đái tháo đường",
   healthRestrictionStatus: "yes",
 };

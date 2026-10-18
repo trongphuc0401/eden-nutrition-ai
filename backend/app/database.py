@@ -20,6 +20,8 @@ def build_engine():
     connect_args = {}
     if url.get_backend_name().startswith("postgresql"):
         connect_args["connect_timeout"] = 3
+        # Supabase's transaction pooler (port 6543) can't keep server-side prepared statements across connections.
+        connect_args["prepare_threshold"] = None
 
     return create_engine(
         database_url,

@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import UUID, uuid4
 
-from sqlalchemy import DateTime, Float, String, Text, func
+from sqlalchemy import Boolean, DateTime, Float, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
@@ -22,4 +22,16 @@ class ClinicalSafetyRule(Base):
     warning_message: Mapped[str] = mapped_column(Text)
     source: Mapped[str | None] = mapped_column(String(255))
     notes: Mapped[str | None] = mapped_column(Text)
+    # Canonical workbook fields. The original text fields remain for existing callers.
+    condition_code: Mapped[str | None] = mapped_column(String(80), index=True)
+    target_type: Mapped[str | None] = mapped_column(String(30))
+    ingredient_id: Mapped[UUID | None] = mapped_column()
+    nutrient_code: Mapped[str | None] = mapped_column(String(80))
+    target_text: Mapped[str | None] = mapped_column(Text)
+    avoid_or_limit: Mapped[str | None] = mapped_column(String(20))
+    warning_message_vi: Mapped[str | None] = mapped_column(Text)
+    recommended_action: Mapped[str | None] = mapped_column(String(20))
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    entry_notes: Mapped[str | None] = mapped_column(Text)
+    import_batch_id: Mapped[UUID | None] = mapped_column()
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
