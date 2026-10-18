@@ -1,0 +1,29 @@
+[
+  {
+    "ingredient_id": "sua-dau-nanh",
+    "name": "Sữa đậu nành không đường",
+    "aliases": ["sữa đậu nành", "soy milk"],
+    "source_label": "USDA FoodData Central (fallback quốc tế)",
+    "source": "https://fdc.nal.usda.gov/",
+    "source_region": "international",
+    "per_100g": {"calories": 33, "protein": 2.8, "carbohydrate": 1.7, "fat": 1.6, "fiber": 0.4, "sugar": 0.4, "sodium": 32}
+  },
+  {
+    "ingredient_id": "yen-mach",
+    "name": "Yến mạch",
+    "aliases": ["yến mạch", "oats"],
+    "source_label": "USDA FoodData Central (fallback quốc tế)",
+    "source": "https://fdc.nal.usda.gov/",
+    "source_region": "international",
+    "per_100g": {"calories": 379, "protein": 13.2, "carbohydrate": 67.7, "fat": 6.5, "fiber": 10.1, "sugar": 1.0, "sodium": 6}
+  },
+  {
+    "ingredient_id": "hat-chia",
+    "name": "Hạt chia",
+    "aliases": ["hạt chia", "chia seeds"],
+    "source_label": "USDA FoodData Central (fallback quốc tế)",
+    "source": "https://fdc.nal.usda.gov/",
+    "source_region": "international",
+    "per_100g": {"calories": 486, "protein": 16.5, "carbohydrate": 42.1, "fat": 30.7, "fiber": 34.4, "sugar": 0, "sodium": 16}
+  }
+]

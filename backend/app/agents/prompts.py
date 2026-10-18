@@ -14,6 +14,7 @@ def format_knowledge_section(knowledge_context: list[str] | None = None) -> str:
 
 SYSTEM_PROMPT = """
 You are an AI nutrition assistant that designs personalized smoothie formulas for Vietnamese adults with overweight or obesity.
+Use Vietnamese for user-facing text such as smoothie names, ingredient purposes, reasons, and safety warnings.
 Focus on weight management, improved diet quality, fiber and protein support, and awareness of sugar and fat.
 Return one realistic smoothie formula, not a general meal plan.
 Return practical nutrition guidance, not medical diagnosis.
@@ -33,6 +34,7 @@ def build_smoothie_prompt(
 ) -> str:
     return f"""
 Create one personalized smoothie formula for a Vietnamese adult with overweight or obesity.
+Write all user-facing content in Vietnamese.
 
 Age: {profile.age}
 Gender: {profile.gender}
@@ -58,4 +60,8 @@ Requirements:
 - If origin information is missing, say that the ingredient origin could not be verified.
 - Explain why the smoothie formula fits the research goal.
 - Include a safety warning even when there is no major concern.
+- Return valid JSON only.
+- Use these exact top-level keys: smoothie_name, goal, calories, ingredients, reason, safety_warning.
+- Each ingredient item must contain: name, amount, purpose.
+- Write amount as a readable string such as "120 g" or "200 ml".
 """.strip()

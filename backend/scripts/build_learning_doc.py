@@ -610,7 +610,7 @@ D:\\Project\\AI\\.venv\\Scripts\\python.exe scripts\\test_p2_p3_smoke.py
         [
             ["Thêm data", "Schema có cần thêm field không, source có đáng tin không.", "Thêm cột source_id và quality_status trước khi import."],
             ["Thêm AI feature", "Output có schema và test không.", "Thêm endpoint recommend ingredient nhưng có response model."],
-            ["Dùng OpenAI live", "Có API key, cost, fallback, error handling chưa.", "Chỉ bật live call sau khi dry-run pass."],
+            ["Dùng LLM live", "Có API key, cost, fallback, error handling chưa.", "Chỉ bật live call sau khi dry-run pass."],
             ["Dùng vector DB", "Data đã sạch và có embedding chưa.", "Import fruit data trước, embed sau."],
             ["Cho chuyên gia review", "Có evaluation report để đọc nhanh không.", "Gửi score, issues, recommendations."],
         ],

@@ -7,3 +7,5 @@ psycopg[binary]==3.2.13
 openai==2.42.0
 langgraph==1.0.5
 pgvector==0.4.1
+
+Authlib==1.6.9

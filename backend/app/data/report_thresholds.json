@@ -1,0 +1,7 @@
+[
+  {"nutrient": "calories", "label": "Năng lượng", "unit": "kcal", "minimum": 120, "maximum": 420},
+  {"nutrient": "protein", "label": "Protein", "unit": "g", "minimum": 5, "maximum": null},
+  {"nutrient": "fiber", "label": "Chất xơ", "unit": "g", "minimum": 3, "maximum": null},
+  {"nutrient": "sugar", "label": "Đường tổng", "unit": "g", "minimum": null, "maximum": 28},
+  {"nutrient": "sodium", "label": "Natri", "unit": "mg", "minimum": null, "maximum": 500}
+]

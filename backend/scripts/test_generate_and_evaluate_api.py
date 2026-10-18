@@ -13,17 +13,13 @@ from app.main import app
 
 def main() -> None:
     client = TestClient(app)
-    payload = {
-        "age": 28,
-        "gender": "female",
-        "height_cm": 162,
-        "weight_kg": 76,
-        "goal": "overweight_obesity_weight_management",
-        "allergies": ["milk"],
-        "preferred_food_types": ["Vietnamese tropical fruits"],
-        "disliked_ingredients": ["banana"],
-        "medical_notes": "prediabetes",
-    }
+    bootstrap_response = client.get("/frontend/bootstrap")
+    assert bootstrap_response.status_code == 200
+    sample_profiles = bootstrap_response.json()["sample_profiles"]
+    payload = next(item["profile"] for item in sample_profiles if item["expected_result"] == "review")
+    out_of_scope_payload = next(
+        item["profile"] for item in sample_profiles if item["expected_result"] == "reject_out_of_scope"
+    )
 
     status_response = client.get("/system-status")
     print("GET /system-status ->", status_response.status_code)
@@ -67,12 +63,6 @@ def main() -> None:
     assert "ingredient_breakdown" in evaluate_body
     print(evaluate_body)
 
-    out_of_scope_payload = {
-        **payload,
-        "height_cm": 170,
-        "weight_kg": 60,
-        "medical_notes": "",
-    }
     analysis_response = client.post("/profiles/analyze", json=out_of_scope_payload)
     print()
     print("POST /profiles/analyze out-of-scope ->", analysis_response.status_code)

@@ -12,13 +12,17 @@ class Base(DeclarativeBase):
 
 
 def build_engine():
-    url = make_url(settings.database_url)
+    database_url = settings.database_url
+    if database_url.startswith("postgresql://"):
+        database_url = database_url.replace("postgresql://", "postgresql+psycopg://", 1)
+
+    url = make_url(database_url)
     connect_args = {}
     if url.get_backend_name().startswith("postgresql"):
         connect_args["connect_timeout"] = 3
 
     return create_engine(
-        settings.database_url,
+        database_url,
         connect_args=connect_args,
         pool_pre_ping=True,
     )

@@ -31,7 +31,19 @@ def parse_number(value: str) -> float | int | None:
 
 
 def parse_months(value: str) -> list[int]:
-    return sorted({int(match) for match in re.findall(r"T\s*(\d{1,2})", value) if 1 <= int(match) <= 12})
+    """Parse Vietnamese season labels, expanding ranges such as T8 - T11."""
+    months: set[int] = set()
+    for start_text, end_text in re.findall(r"T\s*(\d{1,2})(?:\s*[-–—]\s*T?\s*(\d{1,2}))?", value):
+        start = int(start_text)
+        end = int(end_text) if end_text else start
+        if not (1 <= start <= 12 and 1 <= end <= 12):
+            continue
+        if start <= end:
+            months.update(range(start, end + 1))
+        else:
+            months.update(range(start, 13))
+            months.update(range(1, end + 1))
+    return sorted(months)
 
 
 def make_column_names(header_rows: list[list[str]], width: int) -> list[str]:

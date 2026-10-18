@@ -21,8 +21,8 @@ def main() -> None:
         medical_notes="",
     )
 
-    if not settings.openai_api_key:
-        print("OPENAI_API_KEY is not set. Running LangGraph with dry-run smoothie generation.")
+    if not (settings.llm_api_key or settings.openai_api_key):
+        print("LLM_API_KEY is not set. Running LangGraph with dry-run smoothie generation.")
 
     plan = run_nutrition_graph(profile)
     print(plan.model_dump_json(indent=2))

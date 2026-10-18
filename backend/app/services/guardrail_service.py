@@ -6,15 +6,21 @@ from app.schemas.smoothie_schema import SmoothiePlanResponse
 
 
 TERM_ALIASES: dict[str, list[str]] = {
-    "milk": ["milk", "dairy", "yogurt", "yoghurt", "whey", "cheese", "cream"],
-    "banana": ["banana", "chuoi", "chuối"],
-    "soy": ["soy", "soybean", "soya", "dau nanh", "đậu nành"],
-    "peanut": ["peanut", "groundnut", "lac", "lạc"],
-    "tree nut": ["almond", "cashew", "walnut", "hazelnut", "macadamia", "nut"],
+    "milk": ["milk", "dairy", "yogurt", "yoghurt", "whey", "cheese", "cream", "sữa bò", "sữa chua", "phô mai", "kem sữa"],
+    "sua": ["milk", "dairy", "yogurt", "yoghurt", "whey", "cheese", "cream", "sữa bò", "sữa chua", "phô mai", "kem sữa"],
+    "banana": ["banana", "chuối", "chuối tây", "chuối tiêu"],
+    "chuoi": ["banana", "chuối", "chuối tây", "chuối tiêu"],
+    "soy": ["soy", "soybean", "soya", "đậu nành", "sữa đậu nành", "nước đậu nành"],
+    "dau nanh": ["soy", "soybean", "soya", "đậu nành", "sữa đậu nành", "nước đậu nành"],
+    "peanut": ["peanut", "groundnut", "lạc", "đậu phộng"],
+    "lac": ["peanut", "groundnut", "lạc", "đậu phộng"],
+    "dau phong": ["peanut", "groundnut", "lạc", "đậu phộng"],
+    "tree nut": ["almond", "cashew", "walnut", "hazelnut", "macadamia", "nut", "hạnh nhân", "hạt điều", "óc chó"],
 }
 
 
 def normalize_text(value: str) -> str:
+    value = value.replace("đ", "d").replace("Đ", "D")
     normalized = unicodedata.normalize("NFKD", value)
     ascii_only = "".join(char for char in normalized if not unicodedata.combining(char))
     ascii_only = ascii_only.lower()
@@ -28,7 +34,8 @@ def expand_blocked_terms(terms: list[str]) -> list[str]:
         normalized = normalize_text(term)
         if not normalized:
             continue
-        expanded.append(normalized)
+        if normalized not in {"sua"}:
+            expanded.append(normalized)
         for alias in TERM_ALIASES.get(normalized, []):
             expanded.append(normalize_text(alias))
     return sorted(set(expanded))
@@ -87,7 +94,8 @@ def validate_smoothie_plan(
 
     if profile.medical_notes:
         warning = normalize_text(plan.safety_warning)
-        if "consult" not in warning and "clinician" not in warning and "doctor" not in warning:
+        consultation_terms = ["consult", "clinician", "doctor", "tu van", "bac si", "chuyen gia"]
+        if not any(term in warning for term in consultation_terms):
             violations.append(
                 "Medical notes are present but the safety warning does not advise clinical consultation."
             )

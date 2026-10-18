@@ -1,0 +1,8 @@
+{
+  "$schema": "https://langgra.ph/schema.json",
+  "dependencies": ["."],
+  "graphs": {
+    "nutrition_report": "./app/agents/report_graph.py:report_graph"
+  },
+  "env": ".env"
+}

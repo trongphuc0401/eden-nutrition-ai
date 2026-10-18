@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from sqlalchemy.exc import SQLAlchemyError
+from urllib.error import HTTPError, URLError
 from sqlalchemy.orm import Session
 
 from app.agents.nutrition_graph import run_nutrition_graph
@@ -249,7 +250,7 @@ class NutritionService:
     ) -> KnowledgeSelection:
         try:
             return vector_db_search(profile, limit=limit)
-        except (ValueError, SQLAlchemyError):
+        except (ValueError, SQLAlchemyError, HTTPError, URLError):
             return local_seed_search(profile, limit=limit)
 
     def _persist_generation(

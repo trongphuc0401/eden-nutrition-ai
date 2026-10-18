@@ -1,0 +1,70 @@
+[
+  {
+    "profile_id": "demo_thua_can_tien_dai_thao_duong",
+    "label": "Người trưởng thành thừa cân, có ghi chú tiền đái tháo đường",
+    "description": "Ca demo chính: nằm trong phạm vi nghiên cứu, có dị ứng sữa, không thích chuối và cần cảnh báo an toàn.",
+    "expected_result": "review",
+    "profile": {
+      "age": 28,
+      "gender": "nữ",
+      "height_cm": 162,
+      "weight_kg": 76,
+      "goal": "overweight_obesity_weight_management",
+      "allergies": ["sữa"],
+      "preferred_food_types": ["trái cây nhiệt đới Việt Nam", "nguyên liệu giàu chất xơ"],
+      "disliked_ingredients": ["chuối"],
+      "medical_notes": "tiền đái tháo đường"
+    }
+  },
+  {
+    "profile_id": "demo_beo_phi_uu_tien_chat_xo",
+    "label": "Người trưởng thành béo phì, ưu tiên sinh tố nhiều chất xơ",
+    "description": "Ca demo trong phạm vi nghiên cứu để kiểm tra mục tiêu quản lý cân nặng và cải thiện khẩu phần.",
+    "expected_result": "generate_ok",
+    "profile": {
+      "age": 41,
+      "gender": "nam",
+      "height_cm": 168,
+      "weight_kg": 92,
+      "goal": "overweight_obesity_weight_management",
+      "allergies": [],
+      "preferred_food_types": ["trái cây họ cam quýt", "trái cây địa phương Việt Nam"],
+      "disliked_ingredients": ["bơ"],
+      "medical_notes": ""
+    }
+  },
+  {
+    "profile_id": "demo_di_ung_dau_nanh",
+    "label": "Người trưởng thành thừa cân, dị ứng đậu nành",
+    "description": "Ca demo kiểm tra guardrail dị ứng và khả năng tránh nguyên liệu không an toàn.",
+    "expected_result": "review",
+    "profile": {
+      "age": 35,
+      "gender": "nữ",
+      "height_cm": 158,
+      "weight_kg": 70,
+      "goal": "overweight_obesity_weight_management",
+      "allergies": ["đậu nành"],
+      "preferred_food_types": ["ổi", "bưởi"],
+      "disliked_ingredients": ["chuối"],
+      "medical_notes": ""
+    }
+  },
+  {
+    "profile_id": "demo_ngoai_pham_vi_bmi_binh_thuong",
+    "label": "Người có BMI bình thường, ngoài phạm vi nghiên cứu",
+    "description": "Ca kiểm soát âm: API generate phải trả 422 vì BMI dưới 25.",
+    "expected_result": "reject_out_of_scope",
+    "profile": {
+      "age": 28,
+      "gender": "nữ",
+      "height_cm": 170,
+      "weight_kg": 60,
+      "goal": "overweight_obesity_weight_management",
+      "allergies": ["sữa"],
+      "preferred_food_types": ["trái cây nhiệt đới Việt Nam"],
+      "disliked_ingredients": ["chuối"],
+      "medical_notes": ""
+    }
+  }
+]

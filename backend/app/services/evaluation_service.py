@@ -20,16 +20,27 @@ class NutrientEstimate:
 
 FALLBACK_INGREDIENT_NUTRITION = {
     "unsweetened soy beverage": {"calories": 66.0, "protein_g": 6.0, "fiber_g": 1.0, "total_sugar_g": 1.0},
+    "nuoc dau nanh khong duong": {"calories": 33.0, "protein_g": 3.0, "fiber_g": 0.5, "total_sugar_g": 0.8},
+    "sua dau nanh khong duong": {"calories": 33.0, "protein_g": 3.0, "fiber_g": 0.5, "total_sugar_g": 0.8},
     "spinach": {"calories": 9.0, "protein_g": 1.2, "fiber_g": 0.9, "total_sugar_g": 0.1},
+    "rau bina": {"calories": 9.0, "protein_g": 1.2, "fiber_g": 0.9, "total_sugar_g": 0.1},
     "chia seeds": {"calories": 25.0, "protein_g": 1.0, "fiber_g": 2.0, "total_sugar_g": 0.0},
+    "hat chia": {"calories": 25.0, "protein_g": 1.0, "fiber_g": 2.0, "total_sugar_g": 0.0},
     "guava": {"calories": 82.0, "protein_g": 3.0, "fiber_g": 6.0, "total_sugar_g": 9.0},
+    "oi": {"calories": 68.0, "protein_g": 2.6, "fiber_g": 5.4, "total_sugar_g": 8.9},
+    "nuoc loc lanh": {"calories": 0.0, "protein_g": 0.0, "fiber_g": 0.0, "total_sugar_g": 0.0},
+    "nuoc loc": {"calories": 0.0, "protein_g": 0.0, "fiber_g": 0.0, "total_sugar_g": 0.0},
+    "bot protein thuc vat": {"calories": 380.0, "protein_g": 75.0, "fiber_g": 5.0, "total_sugar_g": 2.0},
 }
 
 INGREDIENT_ALIASES = {
     "orange": ["cam"],
+    "guava": ["oi", "ổi"],
+    "oi": ["guava", "ổi"],
+    "pomelo": ["buoi", "bưởi", "buoi da xanh"],
+    "buoi": ["pomelo", "bưởi", "buoi da xanh"],
     "lemon": ["chanh"],
     "lime": ["chanh"],
-    "pomelo": ["buoi", "buoi da xanh"],
     "grapefruit": ["buoi"],
     "strawberry": ["dau tay"],
     "banana": ["chuoi tay", "chuoi tieu"],

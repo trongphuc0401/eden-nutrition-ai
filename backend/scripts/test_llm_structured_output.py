@@ -26,8 +26,8 @@ def main() -> None:
     print("Prompt preview:")
     print(build_smoothie_prompt(profile))
 
-    if not settings.openai_api_key:
-        print("OPENAI_API_KEY is not set. Skipping live OpenAI call.")
+    if not (settings.llm_api_key or settings.openai_api_key):
+        print("LLM_API_KEY is not set. Skipping live provider call.")
         return
 
     plan = generate_smoothie_plan(profile)

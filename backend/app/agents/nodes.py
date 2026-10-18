@@ -34,7 +34,7 @@ def generate_smoothie_plan_node(state: NutritionGraphState) -> NutritionGraphSta
     profile = state["profile"]
     knowledge_context = state.get("knowledge_context", [])
 
-    if settings.openai_api_key:
+    if settings.llm_api_key or settings.openai_api_key:
         state["smoothie_plan"] = generate_smoothie_plan(
             profile,
             knowledge_context=knowledge_context,

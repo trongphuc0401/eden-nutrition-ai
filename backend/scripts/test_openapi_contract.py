@@ -12,6 +12,7 @@ from app.main import app
 REQUIRED_PATHS = {
     "/health": ["get"],
     "/system-status": ["get"],
+    "/frontend/bootstrap": ["get"],
     "/profiles/analyze": ["post"],
     "/knowledge/search-preview": ["post"],
     "/smoothies/generate": ["post"],
@@ -29,6 +30,9 @@ REQUIRED_SCHEMAS = [
     "SmoothieEvaluationRequest",
     "SmoothieEvaluationResponse",
     "GenerateAndEvaluateResponse",
+    "DemoProfileResponse",
+    "FrontendEndpointResponse",
+    "FrontendBootstrapResponse",
     "SystemStatusResponse",
 ]
 
@@ -70,6 +74,14 @@ def main() -> None:
     system_status = components["SystemStatusResponse"]
     assert "capabilities" in system_status["properties"]
     assert "readiness_status" in system_status["properties"]
+    assert "llm_provider" in system_status["properties"]
+    assert "embedding_provider" in system_status["properties"]
+    assert "embedding_configured" in system_status["properties"]
+
+    frontend_bootstrap = components["FrontendBootstrapResponse"]
+    assert {"sample_profiles", "endpoints", "recommended_flow"}.issubset(
+        set(frontend_bootstrap["required"])
+    )
 
     print(
         {

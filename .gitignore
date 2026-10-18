@@ -8,6 +8,8 @@ __pycache__/
 
 # Dependency/cache folders
 node_modules/
+.next/
+*.tsbuildinfo
 
 # Generated inspection/render artifacts
 *.inspect.ndjson
@@ -16,3 +18,14 @@ backend/Docs/learning_doc_render/
 
 # Research source document is kept local unless explicitly requested
 backend/Docs/ĐCNC_AI.docx
+
+tmp/pdfs/
+output/pdf/test_*.pdf
+
+# Runtime/generated output
+output/
+tmp/
+backend/.langgraph_api/
+docs/_render_tester_handbook/
+frontend/.env*.local
+.vercel/

@@ -16,7 +16,7 @@
     "threshold_code": "THR_PROTEIN_001",
     "goal": "overweight_obesity_weight_management",
     "metric": "protein_g",
-    "min_value": 8.0,
+    "min_value": 7.0,
     "max_value": null,
     "unit": "g",
     "meal_context": "single_smoothie",

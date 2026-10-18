@@ -42,6 +42,7 @@ Current backend endpoints:
 ```txt
 GET  /health
 GET  /system-status
+GET  /frontend/bootstrap
 POST /profiles/analyze
 POST /knowledge/search-preview
 POST /smoothies/generate
@@ -53,11 +54,42 @@ GET  /research-rules/preview
 `/system-status` returns a readiness dashboard for P2/P3 capabilities:
 
 ```txt
-openai_generation, database_persistence, vector_search,
+llm_generation, database_persistence, vector_search,
 local_knowledge_fallback, research_rules, guardrail_and_evaluation
 ```
 
 Each capability includes `status`, `ready`, `reason`, and an optional `next_action`.
+
+The runtime also exposes the active provider names:
+
+```txt
+llm_provider, embedding_provider
+```
+
+Provider split:
+
+| Use case | Recommended provider | Notes |
+|---|---|---|
+| Smoothie generation | `gemini`, `groq`, `cerebras`, `openrouter`, or `openai` | Pick one `LLM_PROVIDER` and matching `LLM_API_KEY`. |
+| Embeddings for pgvector | `openai` or another OpenAI-compatible embedding provider | Gemini embeddings are not wired yet in this backend. |
+| Free test driving | `gemini` for generation, local seed fallback for retrieval | Good for fast iteration without embedding setup. |
+
+Vietnamese-first product rule:
+
+```txt
+Frontend/user-facing labels, sample profiles, reasons, safety warnings, and recommendations should be Vietnamese first.
+Technical JSON field names stay English so the API contract remains stable.
+```
+
+Data storage split:
+
+| Data type | Storage | Why |
+|---|---|---|
+| Nutrition knowledge and ingredient guidance | PostgreSQL table `nutrition_knowledge` plus pgvector column `embedding` | Used by RAG/vector search. |
+| Nutrition thresholds | PostgreSQL table `nutrition_thresholds` | Used by automatic evaluation. |
+| Allergy and clinical safety rules | PostgreSQL table `clinical_safety_rules` | Used by guardrails and safety checks. |
+| Demo frontend profiles | `backend/data/demo_profiles_seed.json` and `/frontend/bootstrap` | UI samples only, not real user records. |
+| Generated user profiles and smoothie plans | PostgreSQL tables `user_profiles` and `smoothie_plans` when `persist_result=true` | Runtime persistence for generated results. |
 
 `/smoothies/generate` supports query params:
 
@@ -109,24 +141,27 @@ Set `DATABASE_URL` in `.env`:
 DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:5432/ai_nutrition
 ```
 
-## OpenAI structured output test
+## LLM structured output test
 
-This branch adds a small OpenAI service that returns a structured smoothie formula for Vietnamese adults with overweight or obesity.
+This branch adds a small provider layer that returns a structured smoothie formula for Vietnamese adults with overweight or obesity.
 
 Run the dry check without an API key:
 
 ```bash
-python scripts/test_openai_structured_output.py
+python scripts/test_llm_structured_output.py
 ```
 
-To make a live OpenAI call, set these values in `.env`:
+To make a live Gemini call, set these values in `.env`:
 
 ```txt
-OPENAI_API_KEY=your_api_key_here
-OPENAI_MODEL=gpt-4.1-mini
+LLM_PROVIDER=gemini
+LLM_API_KEY=your_gemini_key_here
+LLM_MODEL=gemini-2.0-flash
 ```
 
 Then run the same script again.
+
+You can also switch to OpenAI-compatible providers such as Groq, Cerebras, or OpenRouter by changing `LLM_PROVIDER`, `LLM_API_KEY`, `LLM_MODEL`, and optionally `LLM_BASE_URL`.
 
 ## LangGraph basic flow test
 
@@ -189,6 +224,7 @@ Run checks individually when debugging:
 ```bash
 python -m compileall app scripts
 python scripts/test_openapi_contract.py
+python scripts/test_frontend_bootstrap.py
 python scripts/test_guardrail_and_prompt.py
 python scripts/test_evaluation_edge_cases.py
 python scripts/test_generate_and_evaluate_api.py
@@ -201,6 +237,15 @@ python scripts/import_research_rules.py --dry-run
 python scripts/import_research_rules.py
 ```
 
+Import Vietnamese demo data for frontend/RAG testing:
+
+```bash
+python scripts/import_demo_vi_data.py --dry-run
+python scripts/import_demo_vi_data.py
+```
+
+This imports demo threshold rules, safety rules, and Vietnamese knowledge items. With `EMBEDDING_PROVIDER=gemini`, it also creates 1536-dimensional embeddings in PostgreSQL pgvector.
+
 The graph runs:
 
 ```txt
@@ -209,7 +254,7 @@ START -> analyze_goal -> generate_smoothie_plan -> safety_check -> END
 
 ## RAG pgvector dry-run test
 
-This branch adds pgvector support for `nutrition_knowledge.embedding`, OpenAI embedding creation, vector search, and prompt knowledge injection.
+This branch adds pgvector support for `nutrition_knowledge.embedding`, configurable embedding providers, vector search, and prompt knowledge injection.
 
 Run the dry-run without PostgreSQL or an OpenAI API key:
 
@@ -218,6 +263,14 @@ python scripts/test_rag_pgvector_dry_run.py
 ```
 
 For real vector search later, PostgreSQL must have the `vector` extension enabled and `nutrition_knowledge.embedding` populated.
+
+If you want to create embeddings during import, set an embeddings provider in `.env`:
+
+```txt
+EMBEDDING_PROVIDER=openai
+EMBEDDING_API_KEY=your_key_here
+EMBEDDING_MODEL=text-embedding-3-small
+```
 
 Vietnamese fruit origin constraints use these `nutrition_knowledge` metadata fields:
 
@@ -255,7 +308,7 @@ Import records into `nutrition_knowledge` without embeddings:
 python scripts/import_vietnamese_fruit_data.py
 ```
 
-Import records and create OpenAI embeddings:
+Import records and create embeddings:
 
 ```bash
 python scripts/import_vietnamese_fruit_data.py --embed

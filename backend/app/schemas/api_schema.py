@@ -110,6 +110,31 @@ class GenerateAndEvaluateResponse(BaseModel):
     evaluation: SmoothieEvaluationResponse
 
 
+class DemoProfileResponse(BaseModel):
+    profile_id: str
+    label: str
+    description: str
+    expected_result: Literal["generate_ok", "review", "reject_out_of_scope"]
+    profile: ProfileInput
+
+
+class FrontendEndpointResponse(BaseModel):
+    method: str
+    path: str
+    purpose: str
+
+
+class FrontendBootstrapResponse(BaseModel):
+    app_name: str
+    research_goal: str
+    goal_options: list[str]
+    gender_options: list[str]
+    sample_profiles: list[DemoProfileResponse]
+    endpoints: list[FrontendEndpointResponse]
+    recommended_flow: list[str]
+    notes: list[str]
+
+
 class CapabilityStatus(BaseModel):
     name: str
     status: str
@@ -122,7 +147,11 @@ class SystemStatusResponse(BaseModel):
     app_name: str
     app_env: str
     readiness_status: str
+    llm_provider: str
+    llm_configured: bool
     openai_configured: bool
+    embedding_provider: str
+    embedding_configured: bool
     database_reachable: bool
     vector_search_available: bool
     persistence_available: bool

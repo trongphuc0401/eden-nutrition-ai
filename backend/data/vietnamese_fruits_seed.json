@@ -543,6 +543,8 @@
     "season": "T8 - T11",
     "season_months": [
       8,
+      9,
+      10,
       11
     ],
     "allowed_for_smoothie": true,
@@ -1114,6 +1116,9 @@
     "season": "T7 - T11",
     "season_months": [
       7,
+      8,
+      9,
+      10,
       11
     ],
     "allowed_for_smoothie": true,
@@ -1685,6 +1690,8 @@
     "season": "T6 - T9",
     "season_months": [
       6,
+      7,
+      8,
       9
     ],
     "allowed_for_smoothie": true,
@@ -3398,6 +3405,8 @@
     "season": "T1 - T4",
     "season_months": [
       1,
+      2,
+      3,
       4
     ],
     "allowed_for_smoothie": true,
@@ -3969,6 +3978,7 @@
     "season": "T8 - T10",
     "season_months": [
       8,
+      9,
       10
     ],
     "allowed_for_smoothie": true,
@@ -4540,6 +4550,7 @@
     "season": "T1 - T3",
     "season_months": [
       1,
+      2,
       3
     ],
     "allowed_for_smoothie": true,
@@ -7387,6 +7398,9 @@
     "season_months": [
       6,
       7,
+      8,
+      9,
+      10,
       11
     ],
     "allowed_for_smoothie": true,

@@ -1,12 +1,15 @@
 from fastapi import FastAPI, HTTPException, Query
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import func, select, text
 from sqlalchemy.exc import SQLAlchemyError
 
+from app.api.report_routes import router as report_router
 from app.config import settings
 from app.database import SessionLocal
 from app.models.nutrition_knowledge import NutritionKnowledge
 from app.schemas.api_schema import (
     CapabilityStatus,
+    FrontendBootstrapResponse,
     GenerateAndEvaluateResponse,
     KnowledgeSearchResponse,
     ProfileAnalysisResponse,
@@ -16,8 +19,11 @@ from app.schemas.api_schema import (
     SmoothieGenerationResponse,
 )
 from app.schemas.profile_schema import ProfileInput
+from app.schemas.frontend_schema import FrontendGenerationRequest
 from app.schemas.smoothie_schema import SmoothiePlanResponse
 from app.services.evaluation_service import EvaluationService
+from app.services.demo_service import build_frontend_bootstrap
+from app.services.frontend_service import build_ingredient_catalog, create_frontend_report
 from app.services.nutrition_service import (
     GuardrailViolationError,
     NutritionService,
@@ -30,9 +36,17 @@ from app.services.research_rule_service import ResearchRuleService
 
 
 app = FastAPI(title=settings.app_name)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.cors_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 nutrition_service = NutritionService()
 evaluation_service = EvaluationService()
 research_rule_service = ResearchRuleService()
+app.include_router(report_router)
 
 
 def _database_status() -> tuple[bool, str]:
@@ -72,7 +86,10 @@ def health_check() -> dict[str, str | bool]:
     return {
         "status": "ok",
         "app_name": settings.app_name,
-        "openai_configured": bool(settings.openai_api_key),
+        "llm_provider": settings.llm_provider,
+        "llm_configured": bool(settings.llm_api_key or settings.openai_api_key or settings.zai_api_key),
+        "embedding_provider": settings.embedding_provider,
+        "embedding_configured": bool(settings.embedding_api_key or settings.llm_api_key or settings.openai_api_key),
     }
 
 
@@ -84,17 +101,18 @@ def system_status() -> SystemStatusResponse:
     fallback_count = local_seed_item_count()
     database_reachable, database_reason = _database_status()
     vector_embedding_count = _vector_embedding_item_count() if database_reachable else 0
-    openai_configured = bool(settings.openai_api_key)
-    vector_search_available = openai_configured and database_reachable and vector_embedding_count > 0
+    llm_configured = bool(settings.llm_api_key or settings.openai_api_key or settings.zai_api_key)
+    embedding_configured = bool(settings.embedding_api_key or settings.llm_api_key or settings.openai_api_key)
+    vector_search_available = embedding_configured and database_reachable and vector_embedding_count > 0
     persistence_available = database_reachable
 
     capabilities = [
         CapabilityStatus(
-            name="openai_generation",
-            status="ready" if openai_configured else "missing_api_key",
-            ready=openai_configured,
-            reason="OPENAI_API_KEY is configured." if openai_configured else "OPENAI_API_KEY is not configured.",
-            next_action=None if openai_configured else "Set OPENAI_API_KEY in backend/.env for live model calls.",
+            name="llm_generation",
+            status="ready" if llm_configured else "missing_api_key",
+            ready=llm_configured,
+            reason="A model API key is configured." if llm_configured else "No LLM provider API key is configured.",
+            next_action=None if llm_configured else "Set LLM_PROVIDER and LLM_API_KEY in backend/.env for live model calls.",
         ),
         CapabilityStatus(
             name="database_persistence",
@@ -110,11 +128,11 @@ def system_status() -> SystemStatusResponse:
             reason=(
                 f"{vector_embedding_count} embedded knowledge rows available."
                 if vector_search_available
-                else "Vector search needs OpenAI API key, reachable database, and embedded knowledge rows."
+                else "Vector search needs a configured LLM/embeddings provider, reachable database, and embedded knowledge rows."
             ),
             next_action=None
             if vector_search_available
-            else "Run fruit import with embeddings after PostgreSQL and OPENAI_API_KEY are available.",
+            else "Run fruit import with embeddings after PostgreSQL and an embeddings provider are available.",
         ),
         CapabilityStatus(
             name="local_knowledge_fallback",
@@ -143,7 +161,11 @@ def system_status() -> SystemStatusResponse:
         app_name=settings.app_name,
         app_env=settings.app_env,
         readiness_status=_readiness_label(capabilities),
-        openai_configured=openai_configured,
+        llm_provider=settings.llm_provider,
+        llm_configured=llm_configured,
+        openai_configured=llm_configured,
+        embedding_provider=settings.embedding_provider,
+        embedding_configured=embedding_configured,
         database_reachable=database_reachable,
         vector_search_available=vector_search_available,
         persistence_available=persistence_available,
@@ -156,6 +178,38 @@ def system_status() -> SystemStatusResponse:
         capabilities=capabilities,
     )
 
+
+@app.get("/frontend/bootstrap", response_model=FrontendBootstrapResponse)
+def frontend_bootstrap() -> FrontendBootstrapResponse:
+    return build_frontend_bootstrap()
+
+
+@app.get("/v1/ingredients")
+def list_frontend_ingredients(month: int = Query(default=0, ge=0, le=12)) -> dict:
+    """Read-only ingredient catalog for the Next.js selector."""
+    return {"month": month or None, "items": build_ingredient_catalog(month or None)}
+
+
+@app.get("/v1/auth/configuration")
+def auth_configuration() -> dict[str, bool | str]:
+    """Expose only public readiness, never OAuth secrets."""
+    ready = bool(settings.google_client_id and settings.google_client_secret and settings.session_secret)
+    return {
+        "google_enabled": ready,
+        "redirect_uri": settings.google_redirect_uri,
+        "message": "Google OAuth is ready." if ready else "Google OAuth needs GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET and SESSION_SECRET.",
+    }
+
+
+@app.post("/v1/generations", deprecated=True)
+def create_frontend_generation(request: FrontendGenerationRequest) -> dict:
+    """Legacy synchronous endpoint. New frontend integrations use /v1/reports."""
+    try:
+        return create_frontend_report(profile=request.profile.to_profile_input(), prompt=request.prompt)
+    except GuardrailViolationError as error:
+        raise HTTPException(status_code=422, detail={"code": "guardrail", "message": str(error)}) from error
+    except ResearchScopeError as error:
+        raise HTTPException(status_code=422, detail={"code": "outside_scope", "message": str(error)}) from error
 
 @app.post("/profiles/analyze", response_model=ProfileAnalysisResponse)
 def analyze_profile(profile: ProfileInput) -> ProfileAnalysisResponse:

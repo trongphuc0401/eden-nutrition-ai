@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 
 
@@ -12,10 +14,11 @@ class FrontendProfileInput(BaseModel):
     preferences: list[str] = Field(validation_alias=AliasChoices("preferences", "preferred_food_types"), default_factory=list)
     dislikes: list[str] = Field(validation_alias=AliasChoices("dislikes", "disliked_ingredients"), default_factory=list)
     notes: str = Field(validation_alias=AliasChoices("notes", "medical_notes"), default="")
+    health_restriction_status: Literal["no", "yes", "unknown"] = "unknown"
 
     def to_profile_input(self):
         from app.schemas.profile_schema import ProfileInput
-        return ProfileInput(age=self.age, gender=self.gender, height_cm=self.height_cm, weight_kg=self.weight_kg, goal="overweight_obesity_weight_management", allergies=self.allergies, preferred_food_types=self.preferences, disliked_ingredients=self.dislikes, medical_notes=self.notes)
+        return ProfileInput(age=self.age, gender=self.gender, height_cm=self.height_cm, weight_kg=self.weight_kg, goal="overweight_obesity_weight_management", allergies=self.allergies, preferred_food_types=self.preferences, disliked_ingredients=self.dislikes, medical_notes=self.notes, health_restriction_status=self.health_restriction_status)
 
 
 class FrontendGenerationRequest(BaseModel):

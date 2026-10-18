@@ -12,6 +12,7 @@ BACKEND_DIR = Path(__file__).resolve().parents[1]
 CHECKS = [
     ("compileall", ["-m", "compileall", "app", "scripts"]),
     ("openapi_contract", ["scripts/test_openapi_contract.py"]),
+    ("frontend_bootstrap", ["scripts/test_frontend_bootstrap.py"]),
     ("guardrail_and_prompt", ["scripts/test_guardrail_and_prompt.py"]),
     ("evaluation_edge_cases", ["scripts/test_evaluation_edge_cases.py"]),
     ("generate_and_evaluate_api", ["scripts/test_generate_and_evaluate_api.py"]),

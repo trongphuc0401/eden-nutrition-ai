@@ -1,0 +1,163 @@
+[
+  {
+    "knowledge_id": "demo_vi_oi",
+    "title": "Ổi Việt Nam cho sinh tố giàu chất xơ",
+    "ingredient_name": "ổi",
+    "ingredient_name_en": "guava",
+    "category": "trái cây",
+    "origin_country": "Việt Nam",
+    "region": "Miền Nam, miền Trung",
+    "season_months": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+    "allowed_for_smoothie": true,
+    "content": "Ổi là trái cây phổ biến ở Việt Nam, có thể dùng trong sinh tố một khẩu phần. Dữ liệu demo: ổi phù hợp để tăng chất xơ, tạo vị thanh và hỗ trợ cảm giác no cho người trưởng thành thừa cân hoặc béo phì. Khi dùng cho sinh tố quản lý cân nặng, nên phối hợp với nguồn protein không đường và tránh thêm đường tinh luyện.",
+    "nutrition_per_100g": {
+      "energy_kcal": 68,
+      "protein_g": 2.6,
+      "lipid_g": 1.0,
+      "glucid_g": 14.3,
+      "fiber_g": 5.4,
+      "total_sugar_g": 8.9
+    },
+    "source": "demo_vi_seed",
+    "data_quality_status": "demo_only",
+    "notes": "Dữ liệu mẫu để kiểm thử luồng backend/frontend, cần thay bằng nguồn nghiên cứu chính thức."
+  },
+  {
+    "knowledge_id": "demo_vi_buoi",
+    "title": "Bưởi Việt Nam cho sinh tố ít năng lượng",
+    "ingredient_name": "bưởi",
+    "ingredient_name_en": "pomelo",
+    "category": "trái cây",
+    "origin_country": "Việt Nam",
+    "region": "Đồng bằng sông Cửu Long",
+    "season_months": [8, 9, 10, 11, 12],
+    "allowed_for_smoothie": true,
+    "content": "Bưởi là trái cây Việt Nam có vị chua ngọt nhẹ, có thể dùng lượng vừa phải trong sinh tố. Dữ liệu demo: bưởi giúp tạo vị tươi, bổ sung chất xơ và phù hợp với định hướng hạn chế năng lượng. Không nên thêm siro hoặc sữa đặc khi mục tiêu là quản lý cân nặng.",
+    "nutrition_per_100g": {
+      "energy_kcal": 38,
+      "protein_g": 0.8,
+      "lipid_g": 0.1,
+      "glucid_g": 9.6,
+      "fiber_g": 1.0,
+      "total_sugar_g": 7.0
+    },
+    "source": "demo_vi_seed",
+    "data_quality_status": "demo_only",
+    "notes": "Dữ liệu mẫu để kiểm thử luồng backend/frontend, cần thay bằng nguồn nghiên cứu chính thức."
+  },
+  {
+    "knowledge_id": "demo_vi_du_du",
+    "title": "Đu đủ chín Việt Nam dùng lượng kiểm soát",
+    "ingredient_name": "đu đủ",
+    "ingredient_name_en": "papaya",
+    "category": "trái cây",
+    "origin_country": "Việt Nam",
+    "region": "Nhiều vùng tại Việt Nam",
+    "season_months": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+    "allowed_for_smoothie": true,
+    "content": "Đu đủ chín có thể tạo độ sánh và vị ngọt tự nhiên cho sinh tố. Dữ liệu demo: nên dùng lượng vừa phải, kết hợp với chất xơ hoặc protein để tránh công thức quá ngọt. Người có ghi chú đường huyết cần được cảnh báo xem xét khẩu phần tổng thể.",
+    "nutrition_per_100g": {
+      "energy_kcal": 43,
+      "protein_g": 0.5,
+      "lipid_g": 0.3,
+      "glucid_g": 10.8,
+      "fiber_g": 1.7,
+      "total_sugar_g": 7.8
+    },
+    "source": "demo_vi_seed",
+    "data_quality_status": "demo_only",
+    "notes": "Dữ liệu mẫu để kiểm thử luồng backend/frontend, cần thay bằng nguồn nghiên cứu chính thức."
+  },
+  {
+    "knowledge_id": "demo_vi_sua_dau_nanh_khong_duong",
+    "title": "Sữa đậu nành không đường làm nền protein thực vật",
+    "ingredient_name": "sữa đậu nành không đường",
+    "ingredient_name_en": "unsweetened soy beverage",
+    "category": "nguyên liệu phụ",
+    "origin_country": "Việt Nam",
+    "region": "Sản phẩm phổ biến tại Việt Nam",
+    "season_months": [],
+    "allowed_for_smoothie": true,
+    "content": "Sữa đậu nành không đường có thể dùng làm nền sinh tố để bổ sung protein thực vật và giảm nhu cầu dùng sữa có đường. Không dùng nguyên liệu này cho người dị ứng đậu nành. Dữ liệu demo: phù hợp khi người dùng không dị ứng đậu nành và cần tăng protein trong một khẩu phần sinh tố.",
+    "nutrition_per_100g": {
+      "energy_kcal": 33,
+      "protein_g": 3.0,
+      "lipid_g": 1.8,
+      "glucid_g": 1.2,
+      "fiber_g": 0.5,
+      "total_sugar_g": 0.8
+    },
+    "source": "demo_vi_seed",
+    "data_quality_status": "demo_only",
+    "notes": "Dữ liệu mẫu để kiểm thử guardrail dị ứng đậu nành."
+  },
+  {
+    "knowledge_id": "demo_vi_hat_chia",
+    "title": "Hạt chia dùng lượng nhỏ để tăng chất xơ",
+    "ingredient_name": "hạt chia",
+    "ingredient_name_en": "chia seeds",
+    "category": "nguyên liệu phụ",
+    "origin_country": "",
+    "region": "",
+    "season_months": [],
+    "allowed_for_smoothie": true,
+    "content": "Hạt chia có thể dùng lượng nhỏ trong sinh tố để tăng chất xơ và tạo cảm giác no. Dữ liệu demo: chỉ nên dùng khoảng 1 thìa cà phê đến 1 thìa canh cho một khẩu phần để tránh tăng năng lượng quá mức.",
+    "nutrition_per_100g": {
+      "energy_kcal": 486,
+      "protein_g": 16.5,
+      "lipid_g": 30.7,
+      "glucid_g": 42.1,
+      "fiber_g": 34.4,
+      "total_sugar_g": 0.0
+    },
+    "source": "demo_vi_seed",
+    "data_quality_status": "demo_only",
+    "notes": "Dữ liệu mẫu để kiểm thử công thức giàu chất xơ."
+  },
+  {
+    "knowledge_id": "demo_vi_chuoi_blocked",
+    "title": "Chuối là nguyên liệu cần tránh khi người dùng không thích chuối",
+    "ingredient_name": "chuối",
+    "ingredient_name_en": "banana",
+    "category": "trái cây",
+    "origin_country": "Việt Nam",
+    "region": "Nhiều vùng tại Việt Nam",
+    "season_months": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+    "allowed_for_smoothie": true,
+    "content": "Chuối thường được dùng để tạo độ ngọt và độ sánh cho sinh tố, nhưng phải loại bỏ hoàn toàn nếu người dùng không thích chuối hoặc có ràng buộc tránh chuối. Dữ liệu demo này dùng để kiểm tra guardrail không đưa nguyên liệu bị chặn vào công thức.",
+    "nutrition_per_100g": {
+      "energy_kcal": 89,
+      "protein_g": 1.1,
+      "lipid_g": 0.3,
+      "glucid_g": 22.8,
+      "fiber_g": 2.6,
+      "total_sugar_g": 12.2
+    },
+    "source": "demo_vi_seed",
+    "data_quality_status": "demo_only",
+    "notes": "Dữ liệu mẫu để kiểm thử disliked ingredient filtering."
+  },
+  {
+    "knowledge_id": "demo_vi_bot_protein_thuc_vat",
+    "title": "Bột protein thực vật dùng lượng kiểm soát",
+    "ingredient_name": "bột protein thực vật",
+    "ingredient_name_en": "plant protein powder",
+    "category": "nguyên liệu phụ",
+    "origin_country": "",
+    "region": "",
+    "season_months": [],
+    "allowed_for_smoothie": true,
+    "content": "Bột protein thực vật có thể dùng lượng nhỏ để tăng protein trong sinh tố quản lý cân nặng. Dữ liệu demo: nên chọn loại không đường, không chứa sữa bò/whey nếu người dùng dị ứng sữa. Cần kiểm tra nhãn sản phẩm để tránh thành phần dị ứng như đậu nành, hạt hoặc sữa.",
+    "nutrition_per_100g": {
+      "energy_kcal": 380,
+      "protein_g": 75,
+      "lipid_g": 6,
+      "glucid_g": 10,
+      "fiber_g": 5,
+      "total_sugar_g": 2
+    },
+    "source": "demo_vi_seed",
+    "data_quality_status": "demo_only",
+    "notes": "Dữ liệu mẫu để kiểm thử công thức cần tăng protein; cần thay bằng dữ liệu sản phẩm cụ thể nếu dùng thực tế."
+  }
+]

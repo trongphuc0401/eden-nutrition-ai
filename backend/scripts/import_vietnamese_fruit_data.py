@@ -86,14 +86,14 @@ def import_seed(seed_path: Path, dry_run: bool, embed: bool) -> None:
 
     print(f"Imported {inserted_or_updated} fruit records into nutrition_knowledge.")
     if not embed:
-        print("Embeddings were not created. Re-run with --embed after setting OPENAI_API_KEY.")
+        print("Embeddings were not created. Re-run with --embed after setting an embeddings provider key.")
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Import Vietnamese fruit data into nutrition_knowledge.")
     parser.add_argument("--seed-path", type=Path, default=DEFAULT_SEED_PATH)
     parser.add_argument("--dry-run", action="store_true", help="Load and preview the seed file without DB writes.")
-    parser.add_argument("--embed", action="store_true", help="Create OpenAI embeddings during import.")
+    parser.add_argument("--embed", action="store_true", help="Create embeddings during import using the configured embeddings provider.")
     args = parser.parse_args()
 
     import_seed(seed_path=args.seed_path, dry_run=args.dry_run, embed=args.embed)
