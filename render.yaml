@@ -1,0 +1,71 @@
+# Render Blueprint for the FastAPI backend + Postgres (pgvector).
+# The Next.js frontend is deployed separately on Vercel (root directory: frontend).
+services:
+  - type: web
+    name: fresh-citrus-api
+    runtime: docker
+    rootDir: backend
+    dockerfilePath: ./Dockerfile
+    region: singapore
+    # Persistent disk and pre-deploy commands need a paid instance type.
+    plan: starter
+    healthCheckPath: /health
+    preDeployCommand: python scripts/migrate.py
+    disk:
+      name: report-pdfs
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: fresh-citrus-db
+          property: connectionString
+      - key: APP_ENV
+        value: production
+      - key: PDF_OUTPUT_DIR
+        value: /var/data/pdf
+      - key: REPORT_RECIPE_MODE
+        value: zai
+      - key: REPORT_JOB_PERSISTENCE_ENABLED
+        value: "true"
+      - key: REPORT_RATE_LIMIT_PER_HOUR
+        value: "10"
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: ZAI_MODEL
+        value: glm-4.7-flash
+      - key: LLM_PROVIDER
+        value: zai
+      - key: LLM_MODEL
+        value: glm-4.7-flash
+      - key: EMBEDDING_PROVIDER
+        value: gemini
+      - key: EMBEDDING_MODEL
+        value: gemini-embedding-2
+      - key: EMBEDDING_BASE_URL
+        value: https://generativelanguage.googleapis.com/v1beta
+      # Secrets and deployment URLs: set in the Render dashboard.
+      - key: ZAI_API_KEY
+        sync: false
+      - key: LLM_API_KEY
+        sync: false
+      - key: EMBEDDING_API_KEY
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      # https://<your-app>.vercel.app/api/v1/auth/google/callback
+      - key: GOOGLE_REDIRECT_URI
+        sync: false
+      # https://<your-app>.vercel.app
+      - key: FRONTEND_URL
+        sync: false
+      - key: CORS_ALLOW_ORIGINS
+        sync: false
+
+databases:
+  - name: fresh-citrus-db
+    region: singapore
+    plan: basic-256mb
+    postgresMajorVersion: "16"
