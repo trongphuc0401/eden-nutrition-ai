@@ -1,10 +1,10 @@
 import { z } from "zod";
 
 export const profileSchema = z.object({
-  age: z.coerce.number().int().min(18, "Bạn cần từ 18 tuổi").max(120),
+  age: z.coerce.number().int().min(18, "Bạn cần từ 18 tuổi").max(100, "Tuổi tối đa là 100"),
   gender: z.string().min(1, "Hãy chọn giới tính"),
-  heightCm: z.coerce.number().min(100, "Chiều cao chưa hợp lệ").max(250),
-  weightKg: z.coerce.number().min(25, "Cân nặng chưa hợp lệ").max(400),
+  heightCm: z.coerce.number().int("Chiều cao nhập số nguyên (cm)").min(100, "Chiều cao chưa hợp lệ").max(250),
+  weightKg: z.coerce.number().gt(25, "Cân nặng chưa hợp lệ").max(300, "Cân nặng tối đa là 300 kg"),
   hometown: z.string().min(1, "Hãy chọn quê quán"),
   allergies: z.array(z.string()),
   dislikes: z.array(z.string()),

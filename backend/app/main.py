@@ -1,8 +1,10 @@
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.sessions import SessionMiddleware
 from sqlalchemy import func, select, text
 from sqlalchemy.exc import SQLAlchemyError
 
+from app.api.auth_routes import require_user, router as auth_router
 from app.api.report_routes import router as report_router
 from app.config import settings
 from app.database import SessionLocal
@@ -35,7 +37,18 @@ from app.services.nutrition_service import (
 from app.services.research_rule_service import ResearchRuleService
 
 
+settings.validate_production()
+
 app = FastAPI(title=settings.app_name)
+app.add_middleware(
+    SessionMiddleware,
+    # validate_production() guarantees a real secret outside local development.
+    secret_key=settings.session_secret or "local-dev-insecure-session-secret",
+    session_cookie="fc_session",
+    max_age=60 * 60 * 24 * 14,
+    same_site="lax",
+    https_only=settings.is_production,
+)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
@@ -46,6 +59,7 @@ app.add_middleware(
 nutrition_service = NutritionService()
 evaluation_service = EvaluationService()
 research_rule_service = ResearchRuleService()
+app.include_router(auth_router)
 app.include_router(report_router)
 
 
@@ -190,18 +204,7 @@ def list_frontend_ingredients(month: int = Query(default=0, ge=0, le=12)) -> dic
     return {"month": month or None, "items": build_ingredient_catalog(month or None)}
 
 
-@app.get("/v1/auth/configuration")
-def auth_configuration() -> dict[str, bool | str]:
-    """Expose only public readiness, never OAuth secrets."""
-    ready = bool(settings.google_client_id and settings.google_client_secret and settings.session_secret)
-    return {
-        "google_enabled": ready,
-        "redirect_uri": settings.google_redirect_uri,
-        "message": "Google OAuth is ready." if ready else "Google OAuth needs GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET and SESSION_SECRET.",
-    }
-
-
-@app.post("/v1/generations", deprecated=True)
+@app.post("/v1/generations", deprecated=True, dependencies=[Depends(require_user)])
 def create_frontend_generation(request: FrontendGenerationRequest) -> dict:
     """Legacy synchronous endpoint. New frontend integrations use /v1/reports."""
     try:
@@ -216,7 +219,7 @@ def analyze_profile(profile: ProfileInput) -> ProfileAnalysisResponse:
     return build_profile_analysis(profile)
 
 
-@app.post("/knowledge/search-preview", response_model=KnowledgeSearchResponse)
+@app.post("/knowledge/search-preview", response_model=KnowledgeSearchResponse, dependencies=[Depends(require_user)])
 def knowledge_search_preview(
     profile: ProfileInput,
     limit: int = Query(default=5, ge=1, le=10),
@@ -224,7 +227,7 @@ def knowledge_search_preview(
     return nutrition_service.preview_knowledge(profile=profile, limit=limit)
 
 
-@app.post("/smoothies/generate", response_model=SmoothieGenerationResponse)
+@app.post("/smoothies/generate", response_model=SmoothieGenerationResponse, dependencies=[Depends(require_user)])
 def generate_smoothie(
     profile: ProfileInput,
     use_rag: bool = Query(default=True),
@@ -246,14 +249,14 @@ def generate_smoothie(
         raise HTTPException(status_code=503, detail=str(error)) from error
 
 
-@app.post("/smoothies/evaluate", response_model=SmoothieEvaluationResponse)
+@app.post("/smoothies/evaluate", response_model=SmoothieEvaluationResponse, dependencies=[Depends(require_user)])
 def evaluate_smoothie(request: SmoothieEvaluationRequest) -> SmoothieEvaluationResponse:
     return SmoothieEvaluationResponse(
         **evaluation_service.evaluate_plan(profile=request.profile, plan=request.plan)
     )
 
 
-@app.post("/smoothies/generate-and-evaluate", response_model=GenerateAndEvaluateResponse)
+@app.post("/smoothies/generate-and-evaluate", response_model=GenerateAndEvaluateResponse, dependencies=[Depends(require_user)])
 def generate_and_evaluate_smoothie(
     profile: ProfileInput,
     use_rag: bool = Query(default=True),

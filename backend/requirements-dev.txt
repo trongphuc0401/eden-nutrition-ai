@@ -1,0 +1,5 @@
+-r requirements.txt
+langgraph-cli[inmem]>=0.4,<1
+pypdf==6.19.0
+pdfplumber==0.11.10
+pytest>=8,<9

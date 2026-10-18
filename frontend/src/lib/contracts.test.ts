@@ -15,4 +15,10 @@ describe("frontend contracts", () => {
     expect(profileSchema.safeParse({ ...profile, age: 16 }).success).toBe(false);
     expect(generationInputSchema.safeParse({ profile, ingredientIds: [] }).success).toBe(false);
   });
+
+  it("matches backend profile limits so live requests do not fail with 422", () => {
+    expect(profileSchema.safeParse({ ...profile, age: 101 }).success).toBe(false);
+    expect(profileSchema.safeParse({ ...profile, weightKg: 301 }).success).toBe(false);
+    expect(profileSchema.safeParse({ ...profile, heightCm: 162.5 }).success).toBe(false);
+  });
 });

@@ -29,3 +29,5 @@ export type PendingConfirmation = {
   reportId: string;
   proposal: RecipeProposal;
 };
+
+export type SessionUser = { id: string; email: string | null; name: string | null; avatar_url: string | null };

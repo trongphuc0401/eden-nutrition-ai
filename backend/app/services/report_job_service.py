@@ -5,7 +5,7 @@ import uuid
 import json
 import queue
 import socket
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from sqlalchemy import text
@@ -33,6 +33,10 @@ NODE_MESSAGES = {
 TERMINAL = {"completed", "review", "rejected", "failed", "cancelled"}
 
 
+class RateLimitError(Exception):
+    pass
+
+
 class ReportJobService:
     def __init__(self) -> None:
         self._jobs: dict[str, dict[str, Any]] = {}
@@ -44,7 +48,15 @@ class ReportJobService:
         self._restore_jobs()
         self._worker.start()
 
-    def create(self, request: ReportRequest, idempotency_key: str | None = None) -> dict[str, Any]:
+    def create(
+        self,
+        request: ReportRequest,
+        idempotency_key: str | None = None,
+        owner_id: str | None = None,
+    ) -> dict[str, Any]:
+        if idempotency_key and owner_id:
+            # Keys are client-chosen, so scope them per user to avoid cross-user collisions.
+            idempotency_key = f"{owner_id}:{idempotency_key}"
         if idempotency_key:
             with self._lock:
                 existing = self._idempotency.get(idempotency_key)
@@ -52,6 +64,7 @@ class ReportJobService:
                     if self._jobs[existing]["request"] != request.model_dump(by_alias=True, mode="json"):
                         raise ValueError("Idempotency-Key đã được dùng cho một yêu cầu khác.")
                     return self.snapshot(existing)
+        self._check_rate_limit(owner_id)
         report_id = f"rpt_{uuid.uuid4().hex[:12]}"
         now = datetime.now(timezone.utc)
         job = {
@@ -66,6 +79,8 @@ class ReportJobService:
             "error": None,
             "cancel_requested": False,
             "idempotency_key": idempotency_key,
+            "owner_id": owner_id,
+            "created_at": now,
             "updated_at": now,
         }
         with self._lock:
@@ -77,6 +92,20 @@ class ReportJobService:
         self._queue.put(report_id)
         return self.snapshot(report_id)
 
+    def _check_rate_limit(self, owner_id: str | None) -> None:
+        limit = settings.report_rate_limit_per_hour
+        if not owner_id or limit <= 0:
+            return
+        since = datetime.now(timezone.utc) - timedelta(hours=1)
+        with self._lock:
+            recent = sum(
+                1
+                for job in self._jobs.values()
+                if job.get("owner_id") == owner_id and self._as_datetime(job.get("created_at")) >= since
+            )
+        if recent >= limit:
+            raise RateLimitError(f"Bạn đã tạo {recent} report trong 1 giờ qua. Vui lòng thử lại sau.")
+
     def _work(self) -> None:
         while True:
             report_id = self._queue.get()
@@ -84,6 +113,16 @@ class ReportJobService:
                 self.run(report_id)
             finally:
                 self._queue.task_done()
+
+    @staticmethod
+    def _as_datetime(value: Any) -> datetime:
+        # Restored jobs carry timestamps as strings after the JSONB round trip.
+        if isinstance(value, datetime):
+            return value
+        try:
+            return datetime.fromisoformat(str(value))
+        except ValueError:
+            return datetime.min.replace(tzinfo=timezone.utc)
 
     @staticmethod
     def _jsonable(value: Any) -> Any:
@@ -287,6 +326,10 @@ class ReportJobService:
     def exists(self, report_id: str) -> bool:
         with self._lock:
             return report_id in self._jobs
+
+    def owner_id(self, report_id: str) -> str | None:
+        with self._lock:
+            return self._jobs[report_id].get("owner_id")
 
     def snapshot(self, report_id: str) -> dict[str, Any]:
         with self._lock:

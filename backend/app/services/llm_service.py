@@ -272,10 +272,10 @@ class LLMService:
             },
         }
         request = urllib.request.Request(
-            f"{base_url}/models/{_provider_model()}:generateContent?key={api_key}",
+            f"{base_url}/models/{_provider_model()}:generateContent",
             data=json.dumps(payload).encode("utf-8"),
             method="POST",
-            headers={"Content-Type": "application/json"},
+            headers={"Content-Type": "application/json", "x-goog-api-key": api_key},
         )
         with urllib.request.urlopen(request, timeout=60) as response:
             body = json.loads(response.read().decode("utf-8"))

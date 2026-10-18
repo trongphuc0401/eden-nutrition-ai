@@ -1,21 +1,18 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from pathlib import Path
 from typing import Any
 
 from langgraph.graph import END, START, StateGraph
 from langgraph.types import RetryPolicy
 
 from app.agents.report_state import NutritionReportState
+from app.config import settings
 from app.schemas.report_schema import NutritionReportDocument
 from app.services.pdf_report_service import render_report_pdf
 from app.services.report_calculation_service import calculate_nutrition
 from app.services.report_data_service import resolve_ingredients, slugify
 from app.services.recipe_generation_service import blocked_ingredient_ids, generate_recipe_proposal
-
-
-REPO_ROOT = Path(__file__).resolve().parents[3]
 
 
 def _profile_terms(profile: dict[str, Any], keys: tuple[str, ...]) -> list[str]:
@@ -255,7 +252,7 @@ def compose_report_with_warning(state: NutritionReportState) -> dict[str, Any]:
 
 def render_pdf(state: NutritionReportState) -> dict[str, Any]:
     document = NutritionReportDocument.model_validate(state["report_document"])
-    output_path = REPO_ROOT / "output" / "pdf" / f"{document.report_id}.pdf"
+    output_path = settings.pdf_dir / f"{document.report_id}.pdf"
     artifact = render_report_pdf(document, output_path)
     return {"pdf_metadata": artifact.model_dump()}
 

@@ -1,8 +1,8 @@
 import type { GenerationInput } from "./contracts";
 import type { PendingConfirmation, RecipeProposal, Report } from "./types";
 import { demoReport } from "./demo-data";
+import { apiUrl } from "./api";
 
-const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 const demoMode = process.env.NEXT_PUBLIC_APP_MODE !== "live";
 
 type Created = { report_id: string; thread_id: string; run_id: string; status: string };
@@ -52,6 +52,7 @@ async function json<T>(path: string, init?: RequestInit): Promise<T> {
   if (!response.ok) {
     const problem = await response.json().catch(() => null) as { detail?: string | { message?: string } } | null;
     const detail = typeof problem?.detail === "string" ? problem.detail : problem?.detail?.message;
+    if (response.status === 401) throw new Error(detail ?? "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.");
     throw new Error(detail ?? "Không thể kết nối với dịch vụ report.");
   }
   return response.json() as Promise<T>;

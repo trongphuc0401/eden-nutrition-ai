@@ -1,0 +1,11 @@
+.env
+.env.*
+!.env.example
+.venv/
+__pycache__/
+*.py[cod]
+.langgraph_api/
+.pytest_cache/
+Docs/
+evals/
+tests/

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import hashlib
+import logging
+import os
 from pathlib import Path
 from typing import Any
 
@@ -25,9 +27,16 @@ WHITE = HexColor("#FFFFFF")
 
 
 def _register_fonts() -> tuple[str, str, str]:
-    candidates = [
+    # Every candidate must cover Vietnamese diacritics; Helvetica does not.
+    candidates = []
+    env_regular, env_bold = os.getenv("PDF_FONT_REGULAR"), os.getenv("PDF_FONT_BOLD")
+    if env_regular and env_bold:
+        candidates.append(("ReportBody", "ReportBody-Bold", Path(env_regular), Path(env_bold)))
+    candidates += [
         ("Poppins", "Poppins-SemiBold", Path("C:/Windows/Fonts/Poppins-Regular.ttf"), Path("C:/Windows/Fonts/Poppins-SemiBold.ttf")),
         ("ArialVN", "ArialVN-Bold", Path("C:/Windows/Fonts/arial.ttf"), Path("C:/Windows/Fonts/arialbd.ttf")),
+        ("NotoSans", "NotoSans-Bold", Path("/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf"), Path("/usr/share/fonts/truetype/noto/NotoSans-Bold.ttf")),
+        ("DejaVuSans", "DejaVuSans-Bold", Path("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"), Path("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf")),
     ]
     body = bold = "Helvetica"
     for regular_name, bold_name, regular_path, bold_path in candidates:
@@ -36,6 +45,8 @@ def _register_fonts() -> tuple[str, str, str]:
             pdfmetrics.registerFont(TTFont(bold_name, str(bold_path)))
             body, bold = regular_name, bold_name
             break
+    else:
+        logging.getLogger(__name__).warning("No Vietnamese-capable TTF found; PDF falls back to Helvetica.")
     return body, bold, bold
 
 

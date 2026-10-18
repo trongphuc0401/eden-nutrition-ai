@@ -29,9 +29,11 @@ class Settings(BaseSettings):
     report_recipe_max_repairs: int = 2
     report_job_active_timeout_seconds: int = 180
     report_job_persistence_enabled: bool = False
+    report_rate_limit_per_hour: int = 10
+    pdf_output_dir: str | None = None
     google_client_id: str | None = None
     google_client_secret: str | None = None
-    google_redirect_uri: str = "http://localhost:8000/v1/auth/google/callback"
+    google_redirect_uri: str = "http://localhost:3000/api/v1/auth/google/callback"
     session_secret: str | None = None
     frontend_url: str = "http://localhost:3000"
 
@@ -43,6 +45,40 @@ class Settings(BaseSettings):
     @property
     def cors_origins(self) -> list[str]:
         return [origin.strip() for origin in self.cors_allow_origins.split(",") if origin.strip()]
+
+    @property
+    def is_production(self) -> bool:
+        return self.app_env.strip().lower() == "production"
+
+    @property
+    def google_auth_enabled(self) -> bool:
+        return bool(self.google_client_id and self.google_client_secret and self.session_secret)
+
+    @property
+    def pdf_dir(self) -> Path:
+        if self.pdf_output_dir:
+            return Path(self.pdf_output_dir)
+        return Path(__file__).resolve().parents[2] / "output" / "pdf"
+
+    def validate_production(self) -> None:
+        if not self.is_production:
+            return
+        missing = [
+            name
+            for name, value in (
+                ("SESSION_SECRET", self.session_secret),
+                ("GOOGLE_CLIENT_ID", self.google_client_id),
+                ("GOOGLE_CLIENT_SECRET", self.google_client_secret),
+                ("ZAI_API_KEY", self.zai_api_key),
+            )
+            if not value
+        ]
+        if missing:
+            raise RuntimeError(f"APP_ENV=production requires: {', '.join(missing)}")
+        if self.report_recipe_mode.strip().lower() == "mock":
+            raise RuntimeError("APP_ENV=production must not use REPORT_RECIPE_MODE=mock")
+        if len(self.session_secret or "") < 32:
+            raise RuntimeError("SESSION_SECRET must be at least 32 characters")
 
 
 settings = Settings()

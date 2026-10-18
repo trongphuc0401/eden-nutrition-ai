@@ -1,8 +1,8 @@
-import type { GenerationInput } from "./contracts";
-import type { Ingredient, Profile, Report } from "./types";
-import { defaultProfile, demoReport, ingredients } from "./demo-data";
+import type { Ingredient, Profile, SessionUser } from "./types";
+import { defaultProfile, ingredients } from "./demo-data";
 
-const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+// Same-origin by default: next.config.ts proxies /api/* to the backend.
+export const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "/api";
 const demoMode = process.env.NEXT_PUBLIC_APP_MODE !== "live";
 
 type AuthConfiguration = { google_enabled: boolean; redirect_uri: string; message: string };
@@ -18,9 +18,20 @@ export async function getAuthConfiguration(): Promise<AuthConfiguration> {
   return request<AuthConfiguration>("/v1/auth/configuration");
 }
 
-export async function generateRecipe(payload: GenerationInput): Promise<Report> {
-  if (demoMode) { await new Promise((resolve) => setTimeout(resolve, 2800)); return { ...demoReport, id: crypto.randomUUID(), createdAt: "Vừa xong" }; }
-  return request<Report>("/v1/generations", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+export const googleLoginUrl = `${apiUrl}/v1/auth/google/login`;
+
+/** The signed-in user, or null when there is no session (HTTP 401). */
+export async function getSession(): Promise<SessionUser | null> {
+  if (demoMode) return null;
+  const response = await fetch(`${apiUrl}/v1/auth/me`, { credentials: "include" });
+  if (response.status === 401) return null;
+  if (!response.ok) throw new Error("Không thể kiểm tra phiên đăng nhập.");
+  const body = await response.json() as { user: SessionUser };
+  return body.user;
+}
+
+export async function logout(): Promise<void> {
+  await fetch(`${apiUrl}/v1/auth/logout`, { method: "POST", credentials: "include" });
 }
 
 export async function getIngredients(month: number): Promise<Ingredient[]> {
