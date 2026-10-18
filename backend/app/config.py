@@ -41,6 +41,9 @@ class Settings(BaseSettings):
     google_client_secret: str | None = None
     google_redirect_uri: str = "http://localhost:3000/api/v1/auth/google/callback"
     session_secret: str | None = None
+    # Set this for an HTTPS proxy (for example Vercel) even if the FastAPI
+    # process itself runs locally behind a tunnel.
+    session_cookie_secure: bool | None = None
     frontend_url: str = "http://localhost:3000"
 
     model_config = SettingsConfigDict(
@@ -59,6 +62,10 @@ class Settings(BaseSettings):
     @property
     def google_auth_enabled(self) -> bool:
         return bool(self.google_client_id and self.google_client_secret and self.session_secret)
+
+    @property
+    def session_cookie_https_only(self) -> bool:
+        return self.is_production if self.session_cookie_secure is None else self.session_cookie_secure
 
     @property
     def pdf_dir(self) -> Path:

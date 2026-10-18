@@ -48,7 +48,7 @@ app.add_middleware(
     session_cookie="fc_session",
     max_age=60 * 60 * 24 * 14,
     same_site="lax",
-    https_only=settings.is_production,
+    https_only=settings.session_cookie_https_only,
 )
 app.add_middleware(
     CORSMiddleware,
