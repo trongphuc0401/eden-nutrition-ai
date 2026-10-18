@@ -1,0 +1,4 @@
+interface:
+  display_name: "Fresh Citrus Brand Guidelines"
+  short_description: "Nutrition AI brand design rules"
+  default_prompt: "Use $fresh-citrus-brand-guidelines before designing or coding branded nutrition AI frontend UI."

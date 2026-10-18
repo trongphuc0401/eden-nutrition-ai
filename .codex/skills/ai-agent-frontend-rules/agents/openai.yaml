@@ -1,0 +1,4 @@
+interface:
+  display_name: "AI Agent Frontend Rules"
+  short_description: "Project AI frontend rulebook"
+  default_prompt: "Use $ai-agent-frontend-rules before designing or coding frontend UI for this AI agent product."
