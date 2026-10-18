@@ -26,7 +26,7 @@ def live(monkeypatch):
 
 
 def test_snapshot_reads_current_version_and_core_nutrients(live) -> None:
-    assert live.dataset_version
+    assert live.source == "supabase"
     by_code = {item["ingredient_code"]: item for item in live.ingredients}
     pomelo = by_code["ING_FRUIT_0001"]
     assert pomelo["ingredient_id"] == "buoi"

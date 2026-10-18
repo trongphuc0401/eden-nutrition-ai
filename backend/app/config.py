@@ -28,11 +28,14 @@ class Settings(BaseSettings):
     report_model_max_retries: int = 1
     report_recipe_max_repairs: int = 2
     report_job_active_timeout_seconds: int = 180
-    report_job_persistence_enabled: bool = False
+    report_job_persistence_enabled: bool = True
     report_rate_limit_per_hour: int = 10
     reference_data_source: str = "auto"  # auto | db | json
     reference_min_db_ingredients: int = 20
     reference_cache_seconds: int = 300
+    chat_mode: str = "template"  # template (deterministic answers from data) | zai (LLM writes the answer from tool facts)
+    chat_persistence_enabled: bool = True  # store threads in Supabase; falls back to memory when the DB is unavailable
+    chat_history_messages: int = 8
     pdf_output_dir: str | None = None
     google_client_id: str | None = None
     google_client_secret: str | None = None

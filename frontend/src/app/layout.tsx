@@ -13,5 +13,5 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="vi" className={`${inter.variable} ${poppins.variable}`}><body><Providers>{children}</Providers></body></html>;
+  return <html lang="vi" className={`${inter.variable} ${poppins.variable}`} suppressHydrationWarning><body suppressHydrationWarning><Providers>{children}</Providers></body></html>;
 }

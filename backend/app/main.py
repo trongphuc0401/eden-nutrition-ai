@@ -5,6 +5,7 @@ from sqlalchemy import func, select, text
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.api.auth_routes import require_user, router as auth_router
+from app.api.chat_routes import router as chat_router
 from app.api.report_routes import router as report_router
 from app.config import settings
 from app.database import SessionLocal
@@ -61,6 +62,7 @@ evaluation_service = EvaluationService()
 research_rule_service = ResearchRuleService()
 app.include_router(auth_router)
 app.include_router(report_router)
+app.include_router(chat_router)
 
 
 def _database_status() -> tuple[bool, str]:
@@ -235,7 +237,7 @@ def generate_smoothie(
     profile: ProfileInput,
     use_rag: bool = Query(default=True),
     knowledge_limit: int = Query(default=5, ge=1, le=10),
-    persist_result: bool = Query(default=False),
+    persist_result: bool = Query(default=True),
 ) -> SmoothieGenerationResponse:
     try:
         return nutrition_service.generate_smoothie(
@@ -264,7 +266,7 @@ def generate_and_evaluate_smoothie(
     profile: ProfileInput,
     use_rag: bool = Query(default=True),
     knowledge_limit: int = Query(default=5, ge=1, le=10),
-    persist_result: bool = Query(default=False),
+    persist_result: bool = Query(default=True),
 ) -> GenerateAndEvaluateResponse:
     try:
         generation = nutrition_service.generate_smoothie(

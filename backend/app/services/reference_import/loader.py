@@ -2,7 +2,7 @@
 
 Re-runnable: every table is keyed by its sheet code and upserted, so a second run updates rather than duplicates.
 Rows already in the database that are not in the workbook (legacy rules/thresholds the app still reads) are left alone.
-The new dataset version only becomes `is_current` as the very last statement.
+Everything happens in one transaction, so readers never see a half-loaded import.
 """
 from __future__ import annotations
 
@@ -99,14 +99,7 @@ def load_bundle(b: Bundle, version: str, embed: bool = False, commit: bool = Tru
         one = lambda sql, params=None: conn.execute(text(sql), params or {}).scalar()  # noqa: E731
 
         # ---- versions and one batch per sheet (carries counts + issues; staging keeps raw rows and per-cell errors)
-        for v in b.versions:
-            run("""INSERT INTO dataset_versions (version_code, released_on, author_name, change_summary, change_reason, meeting_reference)
-                   VALUES (:v, :d, :a, :s, :r, :m) ON CONFLICT (version_code) DO UPDATE SET released_on = EXCLUDED.released_on,
-                   author_name = EXCLUDED.author_name, change_summary = EXCLUDED.change_summary,
-                   change_reason = EXCLUDED.change_reason, meeting_reference = EXCLUDED.meeting_reference""",
-                {"v": v["version"], "d": v["released_on"], "a": v["author"], "s": v["change_summary"] or "", "r": v["reason"], "m": v["meeting_ref"]})
-        run("INSERT INTO dataset_versions (version_code, change_summary) VALUES (:v, 'Import from workbook') ON CONFLICT DO NOTHING", {"v": version})
-
+        # the version is a label on each row (and on import_batches); there is no dataset_versions table
         sheets = sorted({_canon(r["sheet"]) for r in b.raw_rows})
         batch = {}
         for sheet in sheets:
@@ -363,9 +356,7 @@ def load_bundle(b: Bundle, version: str, embed: bool = False, commit: bool = Tru
                     {"e": str(service.create_embedding(row.content)), "m": settings.embedding_model, "id": row.id})
             stats["embedded"] = len(pending)
 
-        # publish last: any failure above rolls back and the previous version stays current
-        run("UPDATE dataset_versions SET is_current = FALSE WHERE is_current")
-        run("UPDATE dataset_versions SET is_current = TRUE WHERE version_code = :v", {"v": version})
+        # one transaction: any failure above rolls back and readers keep seeing the previous import
         # sanity queries against the freshly loaded data (visible inside this transaction even when it is rolled back)
         stats["usable_candidates"] = one("SELECT count(*) FROM ai.candidate_ingredients('{}', '{}', NULL, NULL, 0.5, 1000)")
         stats["candidates_without_soy"] = one("SELECT count(*) FROM ai.candidate_ingredients(ARRAY['soy_allergy'], '{}', NULL, NULL, 0.5, 1000)")

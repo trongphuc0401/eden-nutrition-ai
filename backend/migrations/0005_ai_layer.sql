@@ -89,7 +89,7 @@ LANGUAGE sql STABLE AS $$
 $$;
 
 -- Hybrid search over nutrition_knowledge: vector rank + full-text rank fused with Reciprocal Rank Fusion.
--- Only chunks of the current dataset version (or legacy chunks without a version) are searched.
+-- Searches every chunk; the importer replaces chunks in place, so there is no version filter.
 CREATE OR REPLACE FUNCTION ai.match_chunks(
     p_query_embedding vector(1536),
     p_query_text      text,
@@ -99,9 +99,7 @@ RETURNS TABLE (chunk_id uuid, entity_code text, chunk_type text, content text, m
 LANGUAGE sql STABLE AS $$
     WITH base AS (
         SELECT k.* FROM nutrition_knowledge k
-         WHERE (k.dataset_version_code IS NULL
-                OR k.dataset_version_code = (SELECT version_code FROM dataset_versions WHERE is_current))
-           AND (p_chunk_types IS NULL OR k.chunk_type = ANY (p_chunk_types))
+         WHERE (p_chunk_types IS NULL OR k.chunk_type = ANY (p_chunk_types))
     ),
     vec AS (
         SELECT id, row_number() OVER (ORDER BY embedding <=> p_query_embedding) AS r

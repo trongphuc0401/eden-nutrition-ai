@@ -1,5 +1,5 @@
 import type { GenerationInput } from "./contracts";
-import type { PendingConfirmation, RecipeProposal, Report } from "./types";
+import type { PendingConfirmation, Profile, RecipeProposal, Report } from "./types";
 import { demoReport } from "./demo-data";
 import { apiUrl } from "./api";
 
@@ -30,6 +30,24 @@ type Status = Created & {
   proposal?: RecipeProposal;
   confirmation_required?: boolean;
 };
+
+/** Profile in the backend's snake_case shape (shared by /v1/reports and /v1/chat). */
+export function toApiProfile(profile: Profile) {
+  return {
+    age: profile.age,
+    gender: profile.gender,
+    height_cm: profile.heightCm,
+    weight_kg: profile.weightKg,
+    goal: "overweight_obesity_weight_management",
+    allergies: profile.allergies,
+    preferred_food_types: profile.preferences,
+    disliked_ingredients: profile.dislikes,
+    medical_notes: profile.notes,
+    health_restriction_status: profile.healthRestrictionStatus,
+    activity_level: profile.activityLevel,
+    hometown: profile.hometown,
+  };
+}
 
 export type ReportOutcome = { kind: "report"; report: Report } | { kind: "confirmation"; pending: PendingConfirmation };
 
@@ -128,20 +146,7 @@ export async function generateReport(
     return { kind: "report", report: { ...demoReport, id: crypto.randomUUID(), createdAt: "Vừa xong" } };
   }
   const body = {
-    profile: {
-      age: payload.profile.age,
-      gender: payload.profile.gender,
-      height_cm: payload.profile.heightCm,
-      weight_kg: payload.profile.weightKg,
-      goal: "overweight_obesity_weight_management",
-      allergies: payload.profile.allergies,
-      preferred_food_types: payload.profile.preferences,
-      disliked_ingredients: payload.profile.dislikes,
-      medical_notes: payload.profile.notes,
-      health_restriction_status: payload.profile.healthRestrictionStatus,
-      activity_level: payload.profile.activityLevel,
-      hometown: payload.profile.hometown,
-    },
+    profile: toApiProfile(payload.profile),
     ingredientIds: payload.ingredientIds,
     servings: payload.servings,
     prompt: payload.prompt ?? "",
@@ -175,4 +180,17 @@ export async function confirmReport(
 
 export async function cancelPendingReport(reportId: string): Promise<void> {
   await json(`/v1/reports/${reportId}/cancel`, { method: "POST" });
+}
+
+export async function fetchReport(reportId: string): Promise<Report | null> {
+  if (demoMode) return demoReport;
+  try {
+    const status = await json<Status>(`/v1/reports/${encodeURIComponent(reportId)}`);
+    if (status.status === "completed" || status.status === "review") {
+      return toReport(status);
+    }
+    return null;
+  } catch {
+    return null;
+  }
 }

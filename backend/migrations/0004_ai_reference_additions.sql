@@ -8,9 +8,7 @@ CREATE EXTENSION IF NOT EXISTS pg_trgm;
 CREATE EXTENSION IF NOT EXISTS vector;
 
 -- ---------------------------------------------------------------- versions
--- Exactly one version is "current"; the AI layer reads only that one.
-ALTER TABLE dataset_versions ADD COLUMN IF NOT EXISTS is_current BOOLEAN NOT NULL DEFAULT FALSE;
-CREATE UNIQUE INDEX IF NOT EXISTS dataset_versions_one_current ON dataset_versions (is_current) WHERE is_current;
+-- A dataset version is only a text label on each row (dataset_version_code); there is no version table.
 
 -- ---------------------------------------------------------------- nutrients
 ALTER TABLE nutrients ADD COLUMN IF NOT EXISTS is_core BOOLEAN NOT NULL DEFAULT FALSE;           -- sent to the LLM
@@ -21,7 +19,7 @@ ALTER TABLE nutrients ADD COLUMN IF NOT EXISTS plausible_max_per_100g NUMERIC;  
 ALTER TABLE ingredient_nutrients ADD COLUMN IF NOT EXISTS needs_review BOOLEAN NOT NULL DEFAULT FALSE;
 ALTER TABLE ingredient_nutrients ADD COLUMN IF NOT EXISTS review_note TEXT;
 ALTER TABLE ingredient_seasons ADD COLUMN IF NOT EXISTS region_scope VARCHAR(12) NOT NULL DEFAULT 'all';
-ALTER TABLE ingredients ADD COLUMN IF NOT EXISTS dataset_version_code VARCHAR(80) REFERENCES dataset_versions(version_code);
+ALTER TABLE ingredients ADD COLUMN IF NOT EXISTS dataset_version_code VARCHAR(80);
 ALTER TABLE ingredients ADD COLUMN IF NOT EXISTS content_hash VARCHAR(64);
 
 DO $$
@@ -45,7 +43,7 @@ ALTER TABLE health_conditions ADD COLUMN IF NOT EXISTS keywords_vi TEXT[] NOT NU
 -- ---------------------------------------------------------------- thresholds
 -- lipid/protein/carb limits are percent of energy, not grams; make that explicit.
 ALTER TABLE nutrition_thresholds ADD COLUMN IF NOT EXISTS basis VARCHAR(16) NOT NULL DEFAULT 'absolute';
-ALTER TABLE nutrition_thresholds ADD COLUMN IF NOT EXISTS dataset_version_code VARCHAR(80) REFERENCES dataset_versions(version_code);
+ALTER TABLE nutrition_thresholds ADD COLUMN IF NOT EXISTS dataset_version_code VARCHAR(80);
 DO $$
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'nutrition_thresholds_basis_valid') THEN
@@ -57,7 +55,7 @@ CREATE INDEX IF NOT EXISTS nutrition_thresholds_lookup_idx
     ON nutrition_thresholds (target_group, nutrient_code) WHERE is_active;
 
 -- ---------------------------------------------------------------- safety rules
-ALTER TABLE clinical_safety_rules ADD COLUMN IF NOT EXISTS dataset_version_code VARCHAR(80) REFERENCES dataset_versions(version_code);
+ALTER TABLE clinical_safety_rules ADD COLUMN IF NOT EXISTS dataset_version_code VARCHAR(80);
 CREATE INDEX IF NOT EXISTS clinical_safety_rules_cond_idx ON clinical_safety_rules (condition_code) WHERE is_active;
 
 -- ---------------------------------------------------------------- recipes
@@ -103,7 +101,7 @@ CREATE INDEX IF NOT EXISTS nutrition_knowledge_embedding_idx
 -- Lets prompt/model changes be compared run to run.
 CREATE TABLE IF NOT EXISTS eval_runs (
     id                   BIGSERIAL PRIMARY KEY,
-    dataset_version_code VARCHAR(80) REFERENCES dataset_versions(version_code),
+    dataset_version_code VARCHAR(80),
     label                VARCHAR(120),
     model                VARCHAR(80),
     config               JSONB NOT NULL DEFAULT '{}'::jsonb,

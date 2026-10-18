@@ -104,14 +104,17 @@ def get_snapshot() -> ReferenceSnapshot | None:
 
 def _qualifies(snapshot: ReferenceSnapshot) -> bool:
     usable = sum(1 for item in snapshot.ingredients if item["usable"])
-    return bool(snapshot.dataset_version) and usable >= settings.reference_min_db_ingredients and bool(snapshot.thresholds)
+    return usable >= settings.reference_min_db_ingredients and bool(snapshot.thresholds)
 
 
 def _load_from_database() -> ReferenceSnapshot:
     from app.database import engine
 
     with engine.connect() as conn:
-        version = conn.execute(text("SELECT version_code FROM dataset_versions WHERE is_current")).scalar()
+        # the dataset version is only a label: the one written by the latest workbook import (no version table)
+        version = conn.execute(text("""
+            SELECT dataset_version_code FROM import_batches
+             WHERE dataset_version_code IS NOT NULL ORDER BY imported_at DESC LIMIT 1""")).scalar()
         rows = conn.execute(text("""
             SELECT i.id, i.ingredient_code, i.name_vi, i.name_en, i.category, i.processing_state, i.allowed_for_smoothie,
                    i.data_status, i.growing_regions, i.primary_source_code,
@@ -140,7 +143,7 @@ def _load_from_database() -> ReferenceSnapshot:
                    COALESCE(warning_message_vi, warning_message) AS warning_message_vi, severity,
                    COALESCE(recommended_action, action) AS recommended_action
               FROM clinical_safety_rules
-             WHERE is_active AND (dataset_version_code IS NULL OR dataset_version_code = :v)
+             WHERE is_active AND (CAST(:v AS text) IS NULL OR dataset_version_code IS NULL OR dataset_version_code = :v)
              ORDER BY rule_code"""), {"v": version}).mappings().all()
         profile_rules = conn.execute(text("""
             SELECT rule_code, input_field, operator, min_value, max_value, classification_result, target_group, priority
@@ -152,7 +155,7 @@ def _load_from_database() -> ReferenceSnapshot:
                    t.target_group, t.source, t.priority
               FROM nutrition_thresholds t
              WHERE t.is_active AND t.nutrient_code = ANY(:codes)
-               AND (t.dataset_version_code IS NULL OR t.dataset_version_code = :v)
+               AND (CAST(:v AS text) IS NULL OR t.dataset_version_code IS NULL OR t.dataset_version_code = :v)
              ORDER BY t.priority, t.threshold_code"""),
             {"codes": list(NUTRIENT_CODES.values()), "v": version}).mappings().all()
 

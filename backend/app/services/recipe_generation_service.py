@@ -61,11 +61,14 @@ def blocked_ingredient_ids(profile: dict[str, Any]) -> set[str]:
         if any(f"-{slugify(keyword)}-" in term for keyword in keywords if slugify(keyword) for term in allergy_terms):
             allergen_groups.add(code)
 
+    # a disliked word also covers its varieties: "chuối" -> "Chuối tây", "Chuối tiêu" (name starts with the word)
+    disliked = {slugify(str(t)) for t in [*profile.get("disliked_ingredients", []), *profile.get("dislikes", [])] if str(t).strip()}
     blocked: set[str] = set()
     for item in index.values():
         searchable = {slugify(item["name"]), item["ingredient_id"]}
         searchable.update(slugify(alias) for alias in item.get("aliases", []))
-        if normalized.intersection(searchable) or allergen_groups.intersection(item.get("allergen_groups", [])):
+        variety = any(name.startswith(f"{term}-") for name in searchable for term in disliked if term)
+        if variety or normalized.intersection(searchable) or allergen_groups.intersection(item.get("allergen_groups", [])):
             blocked.add(item["ingredient_id"])
     return blocked
 

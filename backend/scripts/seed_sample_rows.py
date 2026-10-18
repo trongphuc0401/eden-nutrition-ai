@@ -61,7 +61,6 @@ def main() -> None:
     b = build_bundle(args.xlsx)
     names = {n["code"]: n for n in b.nutrients}
     soy = pick(b.ingredients, "ingredient_code", SOY_MILK)
-    version = pick(b.versions, "version", VERSION)
     rule = pick(b.safety_rules, "rule_code", RULE)
     thr = pick(b.thresholds, "threshold_code", THRESHOLD)
     prof = pick(b.profile_rules, "rule_code", PROFILE_RULE)
@@ -89,12 +88,6 @@ def main() -> None:
     with engine.begin() as c:
         one = lambda sql, **p: c.execute(text(sql), p).scalar()  # noqa: E731
         run = lambda sql, **p: c.execute(text(sql), p)           # noqa: E731
-
-        run("""INSERT INTO dataset_versions (version_code, released_on, author_name, change_summary, change_reason, meeting_reference)
-               VALUES (:v, :d, :a, :s, :r, :m) ON CONFLICT (version_code) DO NOTHING""",
-            v=version["version"], d=version["released_on"], a=version["author"], s=version["change_summary"],
-            r=version["reason"], m=version["meeting_ref"])
-        run("UPDATE dataset_versions SET is_current = (version_code = :v) WHERE NOT EXISTS (SELECT 1 FROM dataset_versions WHERE is_current)", v=VERSION)
 
         batch = one("SELECT id FROM import_batches WHERE file_checksum = :c AND sheet_name = 'Data_Ingredients (sample)'", c=b.file_checksum)
         if batch is None:
