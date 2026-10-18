@@ -1,6 +1,6 @@
 import type { GenerationInput } from "./contracts";
 import type { Ingredient, Profile, Report } from "./types";
-import { demoReport, ingredients } from "./demo-data";
+import { defaultProfile, demoReport, ingredients } from "./demo-data";
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 const demoMode = process.env.NEXT_PUBLIC_APP_MODE !== "live";
@@ -30,5 +30,5 @@ export async function getIngredients(month: number): Promise<Ingredient[]> {
 }
 
 export const appMode = demoMode ? "demo" : "live";
-export function restoreProfile(): Profile | null { try { const raw = localStorage.getItem("fresh-citrus.profile-draft"); return raw ? JSON.parse(raw) as Profile : null; } catch { return null; } }
+export function restoreProfile(): Profile | null { try { const raw = localStorage.getItem("fresh-citrus.profile-draft"); return raw ? { ...defaultProfile, ...JSON.parse(raw) as Profile } : null; } catch { return null; } }
 export function persistProfile(profile: Profile): void { localStorage.setItem("fresh-citrus.profile-draft", JSON.stringify(profile)); }

@@ -10,6 +10,7 @@ export const profileSchema = z.object({
   dislikes: z.array(z.string()),
   preferences: z.array(z.string()),
   notes: z.string().max(500, "Ghi chú tối đa 500 ký tự"),
+  healthRestrictionStatus: z.enum(["no", "yes", "unknown"]).default("unknown"),
 });
 
 export type ProfileInput = z.infer<typeof profileSchema>;
@@ -18,6 +19,8 @@ export const generationInputSchema = z.object({
   profile: profileSchema,
   ingredientIds: z.array(z.string()).min(1, "Hãy chọn ít nhất một nguyên liệu"),
   prompt: z.string().max(500, "Yêu cầu tối đa 500 ký tự").optional(),
+  servings: z.number().int().min(1).max(4).default(1),
+  locale: z.literal("vi-VN").default("vi-VN"),
 });
 
 export type GenerationInput = z.infer<typeof generationInputSchema>;

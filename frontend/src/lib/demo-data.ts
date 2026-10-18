@@ -3,6 +3,7 @@ import type { Ingredient, Profile, Report } from "./types";
 export const defaultProfile: Profile = {
   age: 28, gender: "Nữ", heightCm: 162, weightKg: 76, hometown: "TP. Hồ Chí Minh",
   allergies: ["Sữa"], dislikes: ["Chuối"], preferences: ["Trái cây nhiệt đới Việt Nam", "Nhiều chất xơ"], notes: "Tiền đái tháo đường",
+  healthRestrictionStatus: "yes",
 };
 
 export const ingredients: Ingredient[] = [
@@ -32,4 +33,5 @@ export const demoReport: Report = {
   reason: "Công thức ưu tiên ổi và yến mạch để tăng chất xơ, kết hợp protein thực vật. Không thêm đường, sữa bò hoặc chuối theo hồ sơ của bạn.",
   warning: "Cần xem xét: bạn có ghi chú về đường huyết. Không thêm đường, siro hoặc sữa đặc. Đây là gợi ý dinh dưỡng, không thay thế tư vấn y tế.",
   sources: ["Dữ liệu thành phần dinh dưỡng trái cây Việt Nam", "WHO — Healthy diet (2026)"],
+  qualityLabel: "Bản thử nghiệm nội bộ – chưa được chuyên gia dinh dưỡng thẩm định.", aiProvider: "mock", aiModel: "demo",
 };
