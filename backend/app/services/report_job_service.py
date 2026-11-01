@@ -32,6 +32,7 @@ NODE_MESSAGES = {
     "finalize_error": "Yêu cầu bị từ chối bởi kiểm tra an toàn",
 }
 TERMINAL = {"completed", "review", "rejected", "failed", "cancelled"}
+CLAIM_RETRY_SECONDS = 30
 
 
 class RateLimitError(Exception):
@@ -170,8 +171,52 @@ class ReportJobService:
                     if job["status"] in {"queued", "running"}:
                         job["status"] = "queued"
                         self._queue.put(job["report_id"])
+            self._release_dead_leases()
         except SQLAlchemyError as error:
             raise RuntimeError("REPORT_JOB_PERSISTENCE_ENABLED=true nhưng bảng report_jobs chưa sẵn sàng.") from error
+
+    def _release_dead_leases(self) -> None:
+        """Free leases left by an earlier process on this host (a restart or reload killed it mid-job).
+
+        Each host runs one process (`--workers 1`), so any other lease with this host's prefix is dead.
+        Without this, restored jobs wait up to 4 minutes for the old lease to expire.
+        """
+        host = f"{socket.gethostname()}-"
+        with SessionLocal.begin() as db:
+            db.execute(
+                text(
+                    "UPDATE report_jobs SET lease_owner = NULL, lease_expires_at = NULL "
+                    "WHERE left(lease_owner, :length) = :host AND lease_owner <> :owner"
+                ),
+                {"length": len(host), "host": host, "owner": self._worker_id},
+            )
+
+    def _retry_claim_later(self, report_id: str) -> None:
+        """Another lease holds the job: check again later so a job whose worker died is never left stuck."""
+        def requeue() -> None:
+            stored = self._load_stored(report_id)
+            with self._lock:
+                if stored:
+                    self._jobs[report_id] = stored  # another worker may have finished it meanwhile
+                job = self._jobs.get(report_id)
+                if job and job["status"] in {"queued", "running"}:
+                    self._queue.put(report_id)
+
+        timer = threading.Timer(CLAIM_RETRY_SECONDS, requeue)
+        timer.daemon = True
+        timer.start()
+
+    def _load_stored(self, report_id: str) -> dict[str, Any] | None:
+        try:
+            with SessionLocal() as db:
+                payload = db.execute(
+                    text("SELECT payload FROM report_jobs WHERE report_id = :report_id"), {"report_id": report_id}
+                ).scalar_one_or_none()
+        except SQLAlchemyError:
+            return None
+        if payload is None:
+            return None
+        return payload if isinstance(payload, dict) else json.loads(payload)
 
     def _claim_job(self, report_id: str) -> bool:
         if not settings.report_job_persistence_enabled:
@@ -222,6 +267,7 @@ class ReportJobService:
 
     def run(self, report_id: str) -> None:
         if not self._claim_job(report_id):
+            self._retry_claim_later(report_id)
             return
         with self._lock:
             job = self._jobs[report_id]

@@ -66,6 +66,8 @@ Không viết calories, macro, số liệu dinh dưỡng, chẩn đoán y khoa h
                 ],
                 "temperature": 0.25,
                 "response_format": {"type": "json_object"},
+                # thinking can exceed the 35 s timeout on the free flash models
+                "thinking": {"type": "disabled"},
             }
         ).encode("utf-8"),
         method="POST",

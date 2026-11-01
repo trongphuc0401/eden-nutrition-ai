@@ -155,3 +155,47 @@ class RecipeGenerationTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class SuggestedIngredientBookkeepingTests(unittest.TestCase):
+    @patch("app.services.recipe_generation_service._call_zai")
+    def test_unlisted_extra_ingredients_are_filled_in_not_rejected(self, call_zai) -> None:
+        call_zai.return_value = (
+            {
+                "title": "Sinh tố cam ổi",
+                "ingredients": [
+                    {"ingredient_id": "cam", "amount": 150, "unit": "g", "reason": "đã chọn"},
+                    {"ingredient_id": "chuoi-tay", "amount": 80, "unit": "g", "reason": "tạo độ sánh"},
+                ],
+                "suggested_ingredient_ids": [],
+                "steps": ["Rửa nguyên liệu.", "Cho vào máy xay.", "Xay mịn và dùng ngay."],
+                "prep_minutes": 5,
+                "rationale": "Thêm chuối cho mịn.",
+            },
+            {},
+            "glm-4.5-flash",
+        )
+        selected, _ = resolve_ingredients(["cam"])
+        with patch.object(settings, "report_recipe_mode", "zai"), patch.object(settings, "zai_api_key", "test-key"):
+            proposal, metadata = generate_recipe_proposal(
+                profile=PROFILE, selected=selected, servings=1, user_prompt="", allow_suggestions=True, rejected_ids=[],
+            )
+        self.assertEqual(proposal.suggested_ingredient_ids, ["chuoi-tay"])
+        self.assertEqual(metadata["repairs"], 0)
+
+    def test_more_than_four_extra_ingredients_is_an_error(self) -> None:
+        extras = ["chuoi-tay", "buoi", "ca-rot", "dao", "dau-tay"]
+        proposal = RecipeProposal.model_validate({
+            "title": "Quá nhiều",
+            "ingredients": [{"ingredient_id": i, "amount": 50, "unit": "g", "reason": "x"} for i in ["cam", *extras]],
+            "suggested_ingredient_ids": [],
+            "steps": ["Rửa nguyên liệu.", "Cho vào máy xay.", "Xay mịn và dùng ngay."],
+            "prep_minutes": 5,
+            "rationale": "x",
+            "ai_provider": "zai",
+            "ai_model": "glm-4.5-flash",
+            "prompt_version": "test",
+        })
+        from app.services.recipe_generation_service import _sync_suggestions
+        errors = validate_proposal(_sync_suggestions(proposal, {"cam"}), PROFILE, {"cam"}, True)
+        self.assertTrue(any("tối đa 4" in error for error in errors))

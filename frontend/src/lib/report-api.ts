@@ -119,9 +119,20 @@ function toReport(status: Status): Report {
   };
 }
 
+/** Poll fast while the workflow is usually busy, then back off; give up well after a stuck job could recover. */
+const FAST_POLL_MS = 350;
+const SLOW_POLL_MS = 1500;
+const FAST_POLL_WINDOW_MS = 15_000;
+const MAX_WAIT_MS = 6 * 60_000;
+
 async function waitForResult(reportId: string, onProgress: (step: number) => void, signal?: AbortSignal): Promise<ReportOutcome> {
+  const startedAt = Date.now();
   while (true) {
     if (signal?.aborted) throw new DOMException("Đã dừng tạo báo cáo", "AbortError");
+    const elapsed = Date.now() - startedAt;
+    if (elapsed > MAX_WAIT_MS) {
+      throw new Error("Report đang xử lý lâu hơn bình thường nên đã ngừng chờ. Lựa chọn của bạn vẫn được giữ, bạn có thể thử lại.");
+    }
     const status = await json<Status>(`/v1/reports/${reportId}`);
     if (status.current_node) onProgress(nodeStep[status.current_node] ?? 0);
     if (terminal.has(status.status)) {
@@ -131,7 +142,7 @@ async function waitForResult(reportId: string, onProgress: (step: number) => voi
       }
       throw new Error(status.error ?? `Workflow kết thúc với trạng thái ${status.status}.`);
     }
-    await new Promise((resolve) => window.setTimeout(resolve, 350));
+    await new Promise((resolve) => window.setTimeout(resolve, elapsed < FAST_POLL_WINDOW_MS ? FAST_POLL_MS : SLOW_POLL_MS));
   }
 }
 

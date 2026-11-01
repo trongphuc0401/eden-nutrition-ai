@@ -216,6 +216,8 @@ def _call_zai(prompt: str, deadline: float) -> tuple[dict[str, Any], dict[str, A
                     ],
                     "temperature": 0.2,
                     "response_format": {"type": "json_object"},
+                    # thinking pushes the long report prompt past the 45 s timeout; without it the reply takes ~5 s
+                    "thinking": {"type": "disabled"},
                 }
             ).encode("utf-8"),
             method="POST",
@@ -244,6 +246,19 @@ def _call_zai(prompt: str, deadline: float) -> tuple[dict[str, Any], dict[str, A
     if isinstance(last_error, HTTPError) and last_error.code == 429:
         raise RecipeGenerationError("Z.AI đang giới hạn lượt gọi (HTTP 429). Vui lòng thử lại sau ít phút.") from last_error
     raise RecipeGenerationError(f"Z.AI không trả về đề xuất hợp lệ: {_describe_error(last_error)}") from last_error
+
+
+MAX_SUGGESTED_INGREDIENTS = 4
+
+
+def _sync_suggestions(proposal: RecipeProposal, selected_ids: set[str]) -> RecipeProposal:
+    """Fill suggested_ingredient_ids from the recipe itself.
+
+    The list is bookkeeping (every ingredient the user did not pick), and the model often forgets it,
+    which used to fail all repair rounds. The user still confirms every suggested ingredient.
+    """
+    extra = [item.ingredient_id for item in proposal.ingredients if item.ingredient_id not in selected_ids]
+    return proposal.model_copy(update={"suggested_ingredient_ids": list(dict.fromkeys(extra))})
 
 
 def validate_proposal(
@@ -278,6 +293,8 @@ def validate_proposal(
         errors.append("suggested_ingredient_ids không khớp nguyên liệu bổ sung")
     if extra and not allow_suggestions:
         errors.append("không được đề nghị nguyên liệu bổ sung ở vòng này")
+    if len(extra) > MAX_SUGGESTED_INGREDIENTS:
+        errors.append(f"tối đa {MAX_SUGGESTED_INGREDIENTS} nguyên liệu bổ sung ngoài lựa chọn của người dùng")
     if set(proposal.suggested_ingredient_ids).intersection(blocked):
         errors.append("đề nghị bổ sung chứa nguyên liệu bị chặn")
     step_text = "-" + slugify(" ".join(proposal.steps)) + "-"
@@ -329,7 +346,9 @@ def generate_recipe_proposal(
         except ValidationError as error:
             feedback = [item["msg"] for item in error.errors()[:8]]
             continue
-        feedback = validate_proposal(proposal, profile, {item["ingredient_id"] for item in selected}, allow_suggestions)
+        selected_ids = {item["ingredient_id"] for item in selected}
+        proposal = _sync_suggestions(proposal, selected_ids)
+        feedback = validate_proposal(proposal, profile, selected_ids, allow_suggestions)
         if not feedback:
             return proposal, {"mode": "zai", "usage": usage, "repairs": repair_count}
     raise RecipeGenerationError("Z.AI không tạo được đề xuất qua bộ kiểm tra sau số lần sửa cho phép.")
