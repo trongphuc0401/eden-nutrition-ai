@@ -199,3 +199,35 @@ class SuggestedIngredientBookkeepingTests(unittest.TestCase):
         from app.services.recipe_generation_service import _sync_suggestions
         errors = validate_proposal(_sync_suggestions(proposal, {"cam"}), PROFILE, {"cam"}, True)
         self.assertTrue(any("tối đa 4" in error for error in errors))
+
+
+class AiTextNumberTests(unittest.TestCase):
+    def test_sentences_with_model_written_nutrition_numbers_are_dropped(self) -> None:
+        from app.services.recipe_generation_service import _without_ai_numbers
+
+        text = "Giàu chất xơ từ ổi và hạt chia. Phù hợp nhu cầu khoảng 200 kcal cho một ly. Cung cấp 5g chất xơ. Xay 1-2 phút."
+        self.assertEqual(_without_ai_numbers(text, "FB"), "Giàu chất xơ từ ổi và hạt chia. Xay 1-2 phút.")
+        self.assertEqual(_without_ai_numbers("Khoảng 10-15% nhu cầu.", "FB"), "FB")
+        self.assertEqual(_without_ai_numbers("Ít calo, nhiều vitamin C.", "FB"), "Ít calo, nhiều vitamin C.")
+
+    @patch("app.services.recipe_generation_service._call_zai")
+    def test_returned_proposal_has_no_ai_nutrition_numbers(self, call_zai) -> None:
+        call_zai.return_value = (
+            {
+                "title": "Sinh tố cam",
+                "ingredients": [{"ingredient_id": "cam", "amount": 150, "unit": "g", "reason": "Cung cấp 50 mg vitamin C."}],
+                "suggested_ingredient_ids": [],
+                "steps": ["Rửa cam.", "Cho cam vào máy.", "Xay mịn và dùng ngay."],
+                "prep_minutes": 5,
+                "rationale": "Ly này khoảng 200 kcal.",
+            },
+            {},
+            "glm-4.5-flash",
+        )
+        selected, _ = resolve_ingredients(["cam"])
+        with patch.object(settings, "report_recipe_mode", "zai"), patch.object(settings, "zai_api_key", "test-key"):
+            proposal, _ = generate_recipe_proposal(
+                profile=PROFILE, selected=selected, servings=1, user_prompt="", allow_suggestions=False, rejected_ids=[],
+            )
+        self.assertNotIn("kcal", proposal.rationale)
+        self.assertNotIn("mg", proposal.ingredients[0].reason)

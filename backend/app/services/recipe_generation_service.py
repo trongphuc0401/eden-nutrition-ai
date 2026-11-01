@@ -249,6 +249,35 @@ def _call_zai(prompt: str, deadline: float) -> tuple[dict[str, Any], dict[str, A
 
 
 MAX_SUGGESTED_INGREDIENTS = 4
+# a number with an energy/weight/percent unit, e.g. "200 kcal", "5g chất xơ", "10-15 %"
+NUTRITION_NUMBER = re.compile(
+    r"\d+(?:[.,]\d+)?\s*(?:[-–]\s*\d+(?:[.,]\d+)?\s*)?(?:kcal|calo|calories?|cal\b|gam\b|gram|mg\b|mcg|µg|g\b|ml\b|%)",
+    re.IGNORECASE,
+)
+RATIONALE_FALLBACK = "Nguyên liệu được chọn theo yêu cầu và mục tiêu trong hồ sơ của bạn; số liệu dinh dưỡng do hệ thống tính từ dữ liệu."
+REASON_FALLBACK = "Phù hợp với yêu cầu của bạn."
+
+
+def _without_ai_numbers(text: str, fallback: str) -> str:
+    """Drop sentences where the model wrote its own nutrition numbers.
+
+    Every number in the report must come from the calculation; a model-written "about 200 kcal" next to the
+    calculated 367 kcal would contradict it.
+    """
+    sentences = re.split(r"(?<=[.!?])\s+", text.strip())
+    kept = [sentence for sentence in sentences if sentence and not NUTRITION_NUMBER.search(sentence)]
+    return " ".join(kept).strip() or fallback
+
+
+def _clean_ai_text(proposal: RecipeProposal) -> RecipeProposal:
+    ingredients = [
+        item.model_copy(update={"reason": _without_ai_numbers(item.reason, REASON_FALLBACK)})
+        for item in proposal.ingredients
+    ]
+    return proposal.model_copy(update={
+        "rationale": _without_ai_numbers(proposal.rationale, RATIONALE_FALLBACK),
+        "ingredients": ingredients,
+    })
 
 
 def _sync_suggestions(proposal: RecipeProposal, selected_ids: set[str]) -> RecipeProposal:
@@ -350,5 +379,5 @@ def generate_recipe_proposal(
         proposal = _sync_suggestions(proposal, selected_ids)
         feedback = validate_proposal(proposal, profile, selected_ids, allow_suggestions)
         if not feedback:
-            return proposal, {"mode": "zai", "usage": usage, "repairs": repair_count}
+            return _clean_ai_text(proposal), {"mode": "zai", "usage": usage, "repairs": repair_count}
     raise RecipeGenerationError("Z.AI không tạo được đề xuất qua bộ kiểm tra sau số lần sửa cho phép.")
