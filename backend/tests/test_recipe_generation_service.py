@@ -100,7 +100,7 @@ class RecipeGenerationTests(unittest.TestCase):
     @patch("app.services.recipe_generation_service._call_zai")
     def test_schema_error_is_repaired_within_limit(self, call_zai) -> None:
         call_zai.side_effect = [
-            ({"title": "Thiếu dữ liệu"}, {}),
+            ({"title": "Thiếu dữ liệu"}, {}, "glm-4.7-flash"),
             (
                 {
                     "title": "Sinh tố cam",
@@ -111,6 +111,7 @@ class RecipeGenerationTests(unittest.TestCase):
                     "rationale": "Công thức đơn giản.",
                 },
                 {"total_tokens": 100},
+                "glm-4.5-flash",
             ),
         ]
         selected, _ = resolve_ingredients(["cam"])
@@ -125,6 +126,31 @@ class RecipeGenerationTests(unittest.TestCase):
             )
         self.assertEqual(proposal.repair_count, 1)
         self.assertEqual(metadata["repairs"], 1)
+        self.assertEqual(proposal.ai_model, "glm-4.5-flash")
+
+    def test_rate_limited_model_falls_back_to_next_free_model(self) -> None:
+        import io
+        import json as jsonlib
+        import time as timelib
+        from urllib.error import HTTPError
+
+        from app.services.recipe_generation_service import _call_zai
+
+        calls: list[str] = []
+
+        def fake_urlopen(request, timeout):
+            model = jsonlib.loads(request.data)["model"]
+            calls.append(model)
+            if model == "glm-4.7-flash":
+                raise HTTPError(request.full_url, 429, "Too Many Requests", {}, io.BytesIO(b"{}"))
+            body = {"choices": [{"message": {"content": '{"title": "ok"}'}}], "usage": {}}
+            return io.BytesIO(jsonlib.dumps(body).encode())
+
+        with patch.object(settings, "zai_api_key", "test-key"), patch.object(settings, "zai_model", "glm-4.7-flash"),                 patch("app.services.recipe_generation_service.urllib.request.urlopen", side_effect=fake_urlopen):
+            payload, _, model = _call_zai("prompt", timelib.monotonic() + 30)
+        self.assertEqual(payload, {"title": "ok"})
+        self.assertEqual(model, "glm-4.5-flash")
+        self.assertEqual(calls, ["glm-4.7-flash", "glm-4.5-flash"])
 
 
 if __name__ == "__main__":
