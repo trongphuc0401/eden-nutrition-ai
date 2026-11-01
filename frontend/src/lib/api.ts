@@ -1,28 +1,32 @@
 import type { Ingredient, Profile, SessionUser } from "./types";
-import { defaultProfile, ingredients } from "./demo-data";
+import { emptyProfile } from "./profile";
 
 // Same-origin by default: next.config.ts proxies /api/* to the backend.
 export const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "/api";
-const demoMode = process.env.NEXT_PUBLIC_APP_MODE !== "live";
 
-type AuthConfiguration = { google_enabled: boolean; redirect_uri: string; message: string };
-
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${apiUrl}${path}`, { credentials: "include", ...init });
-  if (!response.ok) throw new Error("Không thể kết nối với dịch vụ. Vui lòng thử lại.");
-  return response.json() as Promise<T>;
+/** User-facing message for a failed HTTP status; the backend's own detail wins when it sends one. */
+export function httpErrorMessage(status: number, detail?: string): string {
+  if (detail) return detail;
+  if (status === 401) return "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.";
+  if (status === 403) return "Bạn không có quyền thực hiện thao tác này.";
+  if (status === 404) return "Không tìm thấy dữ liệu yêu cầu.";
+  if (status === 429) return "Bạn thao tác quá nhanh. Vui lòng đợi một chút rồi thử lại.";
+  if (status >= 500) return "Dịch vụ đang gặp sự cố. Vui lòng thử lại sau ít phút.";
+  return "Yêu cầu chưa hợp lệ. Vui lòng kiểm tra lại thông tin.";
 }
 
-export async function getAuthConfiguration(): Promise<AuthConfiguration> {
-  if (demoMode) return { google_enabled: false, redirect_uri: "", message: "Demo local đang bật." };
-  return request<AuthConfiguration>("/v1/auth/configuration");
+export const NETWORK_ERROR = "Không kết nối được tới máy chủ. Hãy kiểm tra mạng rồi thử lại.";
+
+async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const response = await fetch(`${apiUrl}${path}`, { credentials: "include", ...init }).catch(() => { throw new Error(NETWORK_ERROR); });
+  if (!response.ok) throw new Error(httpErrorMessage(response.status));
+  return response.json() as Promise<T>;
 }
 
 export const googleLoginUrl = `${apiUrl}/v1/auth/google/login`;
 
 /** The signed-in user, or null when there is no session (HTTP 401). */
 export async function getSession(): Promise<SessionUser | null> {
-  if (demoMode) return null;
   const response = await fetch(`${apiUrl}/v1/auth/me`, { credentials: "include" });
   if (response.status === 401) return null;
   if (!response.ok) throw new Error("Không thể kiểm tra phiên đăng nhập.");
@@ -31,18 +35,26 @@ export async function getSession(): Promise<SessionUser | null> {
 }
 
 export async function logout(): Promise<void> {
-  await fetch(`${apiUrl}/v1/auth/logout`, { method: "POST", credentials: "include" });
+  const response = await fetch(`${apiUrl}/v1/auth/logout`, { method: "POST", credentials: "include" }).catch(() => { throw new Error(NETWORK_ERROR); });
+  if (!response.ok) throw new Error(httpErrorMessage(response.status));
 }
 
 export async function getIngredients(month: number, hometown?: string): Promise<Ingredient[]> {
-  if (demoMode) return ingredients;
+  // Live catalog from the backend (public endpoint): fruit data is never hardcoded in the UI.
   // hometown selects the climate zone (north / central / south) used for "đang mùa"
   const region = hometown ? `&hometown=${encodeURIComponent(hometown)}` : "";
-  const response = await request<{ items: Array<Omit<Ingredient, "emoji">> }>(`/v1/ingredients?month=${month}${region}`);
-  return response.items.map((item) => ({ ...item, emoji: "🍊" }));
+  const response = await request<{ items: Ingredient[] }>(`/v1/ingredients?month=${month}${region}`);
+  return response.items;
 }
 
-export const appMode = demoMode ? "demo" : "live";
+export type AllergenOption = { code: string; label: string };
+
+/** Allergy list from the health_conditions reference data (public endpoint). */
+export async function getAllergens(): Promise<AllergenOption[]> {
+  const response = await request<{ items: AllergenOption[] }>("/v1/reference/allergens");
+  return response.items;
+}
+
 const PROFILE_COMPLETED_KEY = "fresh-citrus.profile-completed";
 
 export function isProfileCompleted(userId?: string): boolean {
@@ -67,10 +79,7 @@ export function restoreProfile(userId?: string): Profile | null {
     const raw = localStorage.getItem(key) || (userId ? localStorage.getItem("fresh-citrus.profile-draft") : null);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as Partial<Profile>;
-    if (parsed.notes === "Tiền đái tháo đường" && parsed.allergies?.includes("Sữa") && parsed.dislikes?.includes("Chuối")) {
-      return { ...defaultProfile, allergies: [], dislikes: [], preferences: [], notes: "", healthRestrictionStatus: "no" };
-    }
-    return { ...defaultProfile, ...parsed };
+    return { ...emptyProfile, ...parsed };
   } catch {
     return null;
   }

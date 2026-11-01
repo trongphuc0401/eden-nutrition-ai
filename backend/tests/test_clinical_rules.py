@@ -162,3 +162,24 @@ def test_nutrient_limit_with_block_action_rejects_after_calculation(db_snapshot,
     result = graph_run(["oi", "xoai"], medical_notes="gan nhiễm mỡ")
     assert result["decision"] == "reject"
     assert any(error.startswith(SUGAR_WARN) for error in result["errors"])
+
+
+def test_allergen_options_come_from_health_conditions_and_match_back(db_snapshot) -> None:
+    from app.services.frontend_service import build_allergen_options
+
+    options = build_allergen_options()
+    assert options == [{"code": "kiwi_allergy", "label": "Kiwi"}, {"code": "sesame_allergy", "label": "Mè"}]
+    # A label the profile form saves must resolve to its own condition in the safety rules.
+    for option in options:
+        assert match_condition_codes([option["label"]], "") == [option["code"]]
+
+
+def test_allergen_endpoint_falls_back_to_seed_catalog() -> None:
+    from fastapi.testclient import TestClient
+
+    from app.main import app
+
+    items = TestClient(app).get("/v1/reference/allergens").json()["items"]
+    labels = {item["label"] for item in items}
+    assert {"Đậu nành", "Sữa bò", "Kiwi"} <= labels
+    assert all(not item["label"].lower().startswith("dị ứng") for item in items)

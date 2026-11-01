@@ -7,7 +7,7 @@ const profile = {
 };
 
 describe("frontend contracts", () => {
-  it("accepts the generation payload shared by demo and live adapters", () => {
+  it("accepts the generation payload sent to the backend", () => {
     expect(generationInputSchema.safeParse({ profile, ingredientIds: ["oi"], prompt: "Ít đường" }).success).toBe(true);
   });
 
@@ -16,7 +16,7 @@ describe("frontend contracts", () => {
     expect(generationInputSchema.safeParse({ profile, ingredientIds: [] }).success).toBe(false);
   });
 
-  it("matches backend profile limits so live requests do not fail with 422", () => {
+  it("matches backend profile limits so requests do not fail with 422", () => {
     expect(profileSchema.safeParse({ ...profile, age: 101 }).success).toBe(false);
     expect(profileSchema.safeParse({ ...profile, weightKg: 301 }).success).toBe(false);
     expect(profileSchema.safeParse({ ...profile, heightCm: 162.5 }).success).toBe(false);

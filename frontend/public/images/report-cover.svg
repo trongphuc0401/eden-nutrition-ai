@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 500" role="img" aria-label="Ly sinh tố cam bên lát cam và ổi">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fff3e8"/>
+      <stop offset="1" stop-color="#fff8d6"/>
+    </linearGradient>
+    <linearGradient id="drink" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fdba74"/>
+      <stop offset="1" stop-color="#f97316"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="500" fill="url(#bg)"/>
+  <circle cx="1080" cy="60" r="180" fill="#facc15" opacity=".35"/>
+  <circle cx="120" cy="470" r="200" fill="#84cc16" opacity=".22"/>
+  <rect x="0" y="380" width="1200" height="120" fill="#f1e7d8" opacity=".7"/>
+  <!-- glass -->
+  <path d="M520 120h160l-22 290a20 20 0 0 1-20 18h-76a20 20 0 0 1-20-18z" fill="#ffffff" opacity=".85"/>
+  <path d="M530 170h140l-18 236a14 14 0 0 1-14 13h-76a14 14 0 0 1-14-13z" fill="url(#drink)"/>
+  <ellipse cx="600" cy="170" rx="70" ry="10" fill="#fff3e8" opacity=".8"/>
+  <path d="M630 60l-20 150" stroke="#84cc16" stroke-width="12" stroke-linecap="round"/>
+  <!-- orange slice on rim -->
+  <circle cx="680" cy="128" r="46" fill="#f97316"/>
+  <circle cx="680" cy="128" r="38" fill="#fff3e8"/>
+  <g stroke="#fdba74" stroke-width="5" stroke-linecap="round"><path d="M680 94v68M646 128h68M656 104l48 48M704 104l-48 48"/></g>
+  <!-- halves on the table -->
+  <g transform="translate(330 360)">
+    <circle r="62" fill="#f97316"/><circle r="52" fill="#fff3e8"/>
+    <g stroke="#fdba74" stroke-width="6" stroke-linecap="round"><path d="M0-46v92M-46 0h92M-33-33l66 66M33-33l-66 66"/></g>
+  </g>
+  <g transform="translate(870 365)">
+    <circle r="58" fill="#84cc16"/><circle r="48" fill="#fde68a"/>
+    <circle r="30" fill="#fb7185" opacity=".55"/>
+    <g fill="#a16207"><circle cx="-10" cy="-6" r="4"/><circle cx="8" cy="-10" r="4"/><circle cx="12" cy="8" r="4"/><circle cx="-8" cy="12" r="4"/></g>
+  </g>
+  <g fill="#84cc16"><path d="M420 300c40-50 90-40 110-20-40 30-80 40-110 20z"/><path d="M760 310c-30-50-80-55-105-35 35 35 75 50 105 35z"/></g>
+</svg>

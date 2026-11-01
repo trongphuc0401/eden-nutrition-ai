@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 320" role="img" aria-label="Ly sinh tố gắn dấu lưu">
+  <rect width="480" height="320" rx="32" fill="#f3fce7"/>
+  <circle cx="90" cy="60" r="70" fill="#facc15" opacity=".3"/>
+  <circle cx="410" cy="280" r="90" fill="#fdba74" opacity=".35"/>
+  <path d="M190 80h100l-14 180a14 14 0 0 1-14 13h-44a14 14 0 0 1-14-13z" fill="#ffffff" stroke="#f1e7d8" stroke-width="4"/>
+  <path d="M198 120h84l-11 136a10 10 0 0 1-10 9h-42a10 10 0 0 1-10-9z" fill="#84cc16" opacity=".75"/>
+  <path d="M260 40l-14 100" stroke="#f97316" stroke-width="10" stroke-linecap="round"/>
+  <path d="M310 110h56v86l-28-18-28 18z" fill="#f97316"/>
+  <path d="M326 140l9 9 17-19" stroke="#ffffff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <g fill="#4d7c0f" opacity=".7"><path d="M120 230c30-40 70-35 85-18-30 25-60 33-85 18z"/></g>
+</svg>

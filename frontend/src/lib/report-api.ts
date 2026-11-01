@@ -1,9 +1,6 @@
 import type { GenerationInput } from "./contracts";
 import type { PendingConfirmation, Profile, RecipeProposal, Report } from "./types";
-import { demoReport } from "./demo-data";
-import { apiUrl } from "./api";
-
-const demoMode = process.env.NEXT_PUBLIC_APP_MODE !== "live";
+import { apiUrl, httpErrorMessage, NETWORK_ERROR } from "./api";
 
 type Created = { report_id: string; thread_id: string; run_id: string; status: string };
 type ReportDocument = {
@@ -67,19 +64,21 @@ const nodeStep: Record<string, number> = {
 };
 
 async function json<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${apiUrl}${path}`, { credentials: "include", ...init });
+  const response = await fetch(`${apiUrl}${path}`, { credentials: "include", ...init }).catch((error: unknown) => {
+    if (error instanceof DOMException && error.name === "AbortError") throw error;
+    throw new Error(NETWORK_ERROR);
+  });
   if (!response.ok) {
     const problem = await response.json().catch(() => null) as { detail?: string | { message?: string } } | null;
     const detail = typeof problem?.detail === "string" ? problem.detail : problem?.detail?.message;
-    if (response.status === 401) throw new Error(detail ?? "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.");
-    throw new Error(detail ?? "Không thể kết nối với dịch vụ report.");
+    throw new Error(httpErrorMessage(response.status, detail));
   }
   return response.json() as Promise<T>;
 }
 
 function toReport(status: Status): Report {
   const document = status.report;
-  if (!document) throw new Error(status.error ?? "Workflow kết thúc nhưng chưa có report.");
+  if (!document) throw new Error(status.error ?? "Workflow kết thúc nhưng chưa có báo cáo.");
   return {
     id: document.report_id,
     name: document.title,
@@ -118,7 +117,7 @@ function toReport(status: Status): Report {
 
 async function waitForResult(reportId: string, onProgress: (step: number) => void, signal?: AbortSignal): Promise<ReportOutcome> {
   while (true) {
-    if (signal?.aborted) throw new DOMException("Đã dừng tạo report", "AbortError");
+    if (signal?.aborted) throw new DOMException("Đã dừng tạo báo cáo", "AbortError");
     const status = await json<Status>(`/v1/reports/${reportId}`);
     if (status.current_node) onProgress(nodeStep[status.current_node] ?? 0);
     if (terminal.has(status.status)) {
@@ -137,14 +136,6 @@ export async function generateReport(
   onProgress: (step: number) => void,
   signal?: AbortSignal,
 ): Promise<ReportOutcome> {
-  if (demoMode) {
-    for (let step = 0; step < 7; step += 1) {
-      if (signal?.aborted) throw new DOMException("Đã dừng tạo report", "AbortError");
-      onProgress(step);
-      await new Promise((resolve) => window.setTimeout(resolve, 180));
-    }
-    return { kind: "report", report: { ...demoReport, id: crypto.randomUUID(), createdAt: "Vừa xong" } };
-  }
   const body = {
     profile: toApiProfile(payload.profile),
     ingredientIds: payload.ingredientIds,
@@ -183,7 +174,6 @@ export async function cancelPendingReport(reportId: string): Promise<void> {
 }
 
 export async function fetchReport(reportId: string): Promise<Report | null> {
-  if (demoMode) return demoReport;
   try {
     const status = await json<Status>(`/v1/reports/${encodeURIComponent(reportId)}`);
     if (status.status === "completed" || status.status === "review") {

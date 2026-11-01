@@ -53,6 +53,29 @@ def build_ingredient_catalog(month: int | None = None, hometown: str | None = No
     return sorted(catalog, key=lambda item: (item["seasonal"] != "in", item["name"]))
 
 
+def build_allergen_options() -> list[dict[str, str]]:
+    """Allergy conditions for the profile form: Supabase health_conditions, else the importer's seed catalog.
+
+    The label is the condition name without "Dị ứng", which still matches the condition keywords that
+    clinical_rule_service.match_condition_codes checks the profile's allergy list against.
+    """
+    from app.services.reference_import.catalog import CONDITIONS
+    from app.services.reference_repository import get_snapshot
+
+    snapshot = get_snapshot()
+    if snapshot is not None and snapshot.condition_types:
+        names = {code: words[-1] for code, words in snapshot.condition_keywords.items() if words}  # name_vi is last
+        pairs = [(code, names.get(code) or code) for code, kind in snapshot.condition_types.items() if kind == "allergy"]
+    else:
+        pairs = [(code, entry[1]) for code, entry in CONDITIONS.items() if entry[0] == "allergy"]
+    return sorted(({"code": code, "label": _allergen_label(name)} for code, name in pairs), key=lambda item: ingredient_id(item["label"]))
+
+
+def _allergen_label(name: str) -> str:
+    label = re.sub(r"^\s*dị ứng\s+", "", name, flags=re.IGNORECASE).strip()
+    return label[:1].upper() + label[1:]
+
+
 def create_frontend_report(profile: ProfileInput, prompt: str = "") -> dict[str, Any]:
     """Create a UI-ready report from the existing generation/evaluation pipeline."""
     generation = NutritionService().generate_smoothie(profile=profile, persist_result=False)

@@ -54,7 +54,6 @@ Mở URL Studio do CLI in ra. Chọn graph `nutrition_report`, dán request/stat
 Tạo `frontend/.env.local`:
 
 ```text
-NEXT_PUBLIC_APP_MODE=live
 NEXT_PUBLIC_API_URL=http://localhost:8000
 ```
 

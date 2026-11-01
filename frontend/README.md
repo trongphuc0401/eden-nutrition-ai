@@ -9,10 +9,10 @@ Copy-Item .env.example .env.local
 npm run dev
 ```
 
-Mặc định `NEXT_PUBLIC_APP_MODE=demo`, vì vậy toàn bộ hành trình có thể thử mà không cần Google, Geoapify hoặc khóa AI.
+Ứng dụng luôn gọi FastAPI qua `/api`: danh mục nguyên liệu, dị ứng, chat và báo cáo đều lấy từ API, không có dữ liệu mẫu trong frontend. Cần chạy backend và đăng nhập Google để vào khung làm việc.
 
-## Chế độ live
+## Kết nối backend
 
-Đặt `NEXT_PUBLIC_APP_MODE=live` và `NEXT_PUBLIC_API_URL` trỏ về FastAPI. API `/v1/generations` cần được bật cùng Google OAuth, tài khoản và worker theo cấu hình backend trước khi dùng dữ liệu người thật.
+Đặt `BACKEND_URL` trỏ về FastAPI (giữ `NEXT_PUBLIC_API_URL=/api` để cookie đăng nhập đi qua proxy). API `/v1/generations` cần được bật cùng Google OAuth, tài khoản và worker theo cấu hình backend trước khi dùng dữ liệu người thật.
 
 Không đặt khóa Google, Geoapify hoặc AI trong biến `NEXT_PUBLIC_*`.

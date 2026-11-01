@@ -1,24 +1,13 @@
-import type { Ingredient, Profile, Report } from "./types";
+import type { Profile, Report } from "@/lib/types";
 
-export const defaultProfile: Profile = {
+// Test-only fixtures. The app itself never ships hardcoded profile or report data.
+export const profileFixture: Profile = {
   age: 28, gender: "Nữ", heightCm: 162, weightKg: 76, hometown: "TP. Hồ Chí Minh", activityLevel: "light",
   allergies: [], dislikes: [], preferences: [], notes: "",
   healthRestrictionStatus: "no",
 };
 
-export const ingredients: Ingredient[] = [
-  { id: "oi", name: "Ổi", emoji: "🍐", seasonal: "in", region: "Đồng bằng sông Cửu Long", kind: "fruit" },
-  { id: "buoi", name: "Bưởi", emoji: "🍊", seasonal: "in", region: "Đồng bằng sông Cửu Long", kind: "fruit" },
-  { id: "chom-chom", name: "Chôm chôm", emoji: "🍒", seasonal: "in", region: "Đồng bằng sông Cửu Long", kind: "fruit" },
-  { id: "dua-hau", name: "Dưa hấu", emoji: "🍉", seasonal: "out", region: "Đồng bằng sông Cửu Long", kind: "fruit" },
-  { id: "dua", name: "Dứa", emoji: "🍍", seasonal: "unknown", region: "Nhiều vùng", kind: "fruit" },
-  { id: "mang-cau", name: "Mãng cầu xiêm", emoji: "🥭", seasonal: "unknown", region: "Nam Bộ", kind: "fruit" },
-  { id: "sua-dau-nanh", name: "Sữa đậu nành không đường", emoji: "🥛", seasonal: "unknown", region: "Nguyên liệu phụ", kind: "support" },
-  { id: "yen-mach", name: "Yến mạch", emoji: "🌾", seasonal: "unknown", region: "Nguyên liệu phụ", kind: "support" },
-  { id: "hat-chia", name: "Hạt chia", emoji: "🫘", seasonal: "unknown", region: "Nguyên liệu phụ", kind: "support" },
-];
-
-export const demoReport: Report = {
+export const reportFixture: Report = {
   id: "demo-oi-xanh", name: "Sinh tố ổi xanh giàu chất xơ", createdAt: "Hôm nay, 10:24", saved: false, decision: "review", version: 1,
   ingredients: [
     { name: "Ổi", amount: "120 g", purpose: "Bổ sung chất xơ và vitamin C", used: true },

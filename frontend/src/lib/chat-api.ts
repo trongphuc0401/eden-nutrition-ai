@@ -2,8 +2,6 @@ import type { Profile } from "./types";
 import { apiUrl } from "./api";
 import { toApiProfile } from "./report-api";
 
-const demoMode = process.env.NEXT_PUBLIC_APP_MODE !== "live";
-
 export type NutritionKey = "calories" | "protein" | "carbohydrate" | "fat" | "fiber" | "sugar" | "sodium";
 export type NutritionRow = {
   ingredient_id: string; name: string; per_100g: Partial<Record<NutritionKey, number | null>>;
@@ -33,12 +31,6 @@ type SendInput = { message: string; threadId: string | null; profile: Profile; s
 
 /** POST /v1/chat and hand every Server-Sent Event to `onEvent` as it arrives. */
 export async function streamChat(input: SendInput, onEvent: (event: ChatEvent) => void, signal?: AbortSignal): Promise<void> {
-  if (demoMode) {
-    onEvent({ event: "thread", data: { thread_id: "demo" } });
-    onEvent({ event: "delta", data: { text: "Đây là bản demo nên trợ lý chưa kết nối dữ liệu dinh dưỡng. Hãy chạy ứng dụng ở chế độ live (NEXT_PUBLIC_APP_MODE=live) để hỏi đáp với dữ liệu thật." } });
-    onEvent({ event: "done", data: { message_id: null, intent: "demo", thread_id: "demo" } });
-    return;
-  }
   const response = await fetch(`${apiUrl}/v1/chat`, {
     method: "POST",
     credentials: "include",
@@ -93,7 +85,6 @@ export type ThreadDetail = {
 
 /** Messages of a thread the signed-in user owns, or null when it no longer exists. */
 export async function loadThread(threadId: string): Promise<ThreadDetail | null> {
-  if (demoMode) return null;
   const response = await fetch(`${apiUrl}/v1/chat/threads/${encodeURIComponent(threadId)}`, { credentials: "include" });
   if (!response.ok) return null;
   const body = (await response.json()) as ThreadDetail;
@@ -101,7 +92,6 @@ export async function loadThread(threadId: string): Promise<ThreadDetail | null>
 }
 
 export async function listThreads(): Promise<ChatThreadSummary[]> {
-  if (demoMode) return [];
   try {
     const response = await fetch(`${apiUrl}/v1/chat/threads`, { credentials: "include" });
     if (!response.ok) return [];
@@ -113,7 +103,6 @@ export async function listThreads(): Promise<ChatThreadSummary[]> {
 }
 
 export async function createThread(title?: string): Promise<{ thread_id: string; title: string } | null> {
-  if (demoMode) return null;
   try {
     const response = await fetch(`${apiUrl}/v1/chat/threads`, {
       method: "POST",
@@ -129,7 +118,6 @@ export async function createThread(title?: string): Promise<{ thread_id: string;
 }
 
 export async function deleteThread(threadId: string): Promise<boolean> {
-  if (demoMode) return false;
   try {
     const response = await fetch(`${apiUrl}/v1/chat/threads/${encodeURIComponent(threadId)}`, {
       method: "DELETE",
@@ -142,7 +130,6 @@ export async function deleteThread(threadId: string): Promise<boolean> {
 }
 
 export async function renameThread(threadId: string, title: string): Promise<boolean> {
-  if (demoMode) return false;
   try {
     const response = await fetch(`${apiUrl}/v1/chat/threads/${encodeURIComponent(threadId)}`, {
       method: "PATCH",
@@ -157,7 +144,6 @@ export async function renameThread(threadId: string, title: string): Promise<boo
 }
 
 export async function attachReportToThread(threadId: string, reportId: string): Promise<boolean> {
-  if (demoMode) return false;
   try {
     const response = await fetch(`${apiUrl}/v1/chat/threads/${encodeURIComponent(threadId)}`, {
       method: "PATCH",

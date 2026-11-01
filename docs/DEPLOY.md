@@ -21,12 +21,11 @@ Phù hợp để demo hoặc phát triển khi backend chưa được deploy. Ve
 | Biến | Giá trị |
 | --- | --- |
 | `BACKEND_URL` | URL HTTPS của ngrok, không có dấu `/` cuối |
-| `NEXT_PUBLIC_APP_MODE` | `live` |
 | `NEXT_PUBLIC_API_URL` | `/api` |
 
 4. Redeploy frontend sau khi đổi biến; `BACKEND_URL` được Next.js đọc khi build để tạo rewrite.
 
-Nếu dùng Google sign-in, trong `backend/.env` đặt `FRONTEND_URL` và `GOOGLE_REDIRECT_URI` theo URL Vercel (`https://<app>.vercel.app` và `https://<app>.vercel.app/api/v1/auth/google/callback`), đồng thời thêm URL đó vào Google OAuth. Khi FastAPI chạy local nhưng được Vercel gọi qua tunnel, đặt thêm `SESSION_COOKIE_SECURE=true` để cookie đăng nhập chỉ đi qua HTTPS. Để demo không cần đăng nhập, đặt `NEXT_PUBLIC_APP_MODE=demo` và không cần tunnel.
+Nếu dùng Google sign-in, trong `backend/.env` đặt `FRONTEND_URL` và `GOOGLE_REDIRECT_URI` theo URL Vercel (`https://<app>.vercel.app` và `https://<app>.vercel.app/api/v1/auth/google/callback`), đồng thời thêm URL đó vào Google OAuth. Khi FastAPI chạy local nhưng được Vercel gọi qua tunnel, đặt thêm `SESSION_COOKIE_SECURE=true` để cookie đăng nhập chỉ đi qua HTTPS.
 
 > URL ngrok miễn phí thường thay đổi khi khởi động lại. Sau mỗi lần URL đổi, cập nhật `BACKEND_URL` trên Vercel và redeploy. Không gửi `backend/.env` hay token ngrok lên Git.
 
@@ -77,7 +76,6 @@ Vercel → *Add New Project* → chọn repo → **Root Directory: `frontend`**.
 | Biến | Giá trị |
 | --- | --- |
 | `BACKEND_URL` | `https://fresh-citrus-api.onrender.com` |
-| `NEXT_PUBLIC_APP_MODE` | `live` |
 | `NEXT_PUBLIC_API_URL` | `/api` |
 
 `NEXT_PUBLIC_*` được gắn lúc build, nên sau khi đổi giá trị cần *Redeploy*.

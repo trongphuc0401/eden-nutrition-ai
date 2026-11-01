@@ -9,7 +9,8 @@ export type Profile = {
   healthRestrictionStatus: "no" | "yes" | "unknown";
 };
 
-export type Ingredient = { id: string; name: string; emoji: string; seasonal: "in" | "out" | "unknown"; region: string; kind: "fruit" | "support" };
+// Served by GET /v1/ingredients (reference data in Supabase); never hardcoded in the UI.
+export type Ingredient = { id: string; name: string; seasonal: "in" | "out" | "unknown"; region: string; kind: "fruit" | "support"; season_months?: number[]; source?: string };
 
 export type Report = {
   id: string; name: string; createdAt: string; saved: boolean; decision: "pass" | "review" | "reject";

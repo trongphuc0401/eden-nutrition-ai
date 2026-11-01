@@ -1,323 +1,274 @@
 "use client";
 
-import { KeyboardEvent, useEffect, useMemo, useReducer, useRef, useState } from "react";
-import { defaultProfile, ingredients } from "@/lib/demo-data";
+import { useCallback, useEffect, useReducer, useRef, useState } from "react";
+import { ContextPanel, ContextPanelBody, ContextPanelHeader } from "@/components/layout/context-panel";
+import { Sidebar, SidebarContent, type View } from "@/components/layout/sidebar";
+import { Topbar } from "@/components/layout/topbar";
+import { Button } from "@/components/ui/button";
+import { Icon } from "@/components/ui/icon";
+import { Modal } from "@/components/ui/modal";
+import { ToastMessage, type Toast } from "@/components/ui/toast";
+import { SignIn } from "@/features/auth/sign-in";
 import { ChatThread } from "@/features/chat/chat-thread";
 import { useChat } from "@/features/chat/use-chat";
-import type { ChatAction, ChatThreadSummary } from "@/lib/chat-api";
-import { appMode, getIngredients, getSession, googleLoginUrl, isProfileCompleted, logout, markProfileCompleted, persistProfile, restoreProfile } from "@/lib/api";
-import { cancelPendingReport, confirmReport, fetchReport, generateReport } from "@/lib/report-api";
-import type { Ingredient, PendingConfirmation, Profile, Report, SessionUser } from "@/lib/types";
 import { generationReducer, initialGenerationState } from "@/features/generation/generation-machine";
+import { ProfileForm } from "@/features/profile/profile-form";
+import { ConfirmationPanel } from "@/features/workspace/confirmation-panel";
+import { EmptyWorkspace } from "@/features/workspace/empty-workspace";
+import { IngredientPicker, type CatalogStatus } from "@/features/workspace/ingredient-picker";
+import { LibraryView } from "@/features/workspace/library-view";
+import { Processing } from "@/features/workspace/processing";
+import { PromptBox } from "@/features/workspace/prompt-box";
+import { ReportView } from "@/features/workspace/report-view";
+import { getIngredients, getSession, isProfileCompleted, logout, markProfileCompleted, persistProfile, restoreProfile } from "@/lib/api";
+import type { ChatAction } from "@/lib/chat-api";
 import { generationInputSchema } from "@/lib/contracts";
+import { emptyProfile, inScope } from "@/lib/profile";
+import { cancelPendingReport, confirmReport, fetchReport, generateReport } from "@/lib/report-api";
+import type { Ingredient, Profile, Report, SessionUser } from "@/lib/types";
 
-type View = "signin" | "onboarding" | "workspace" | "history" | "saved" | "profile" | "reference";
-type Toast = { text: string; tone?: "success" | "error" } | null;
-
-const steps = [
-  ["Kiểm tra yêu cầu", "Đang xác thực hồ sơ và nguyên liệu..."],
-  ["Truy xuất dữ liệu", "Đang lấy số liệu dinh dưỡng có nguồn..."],
-  ["Tạo công thức", "Đang dùng đúng nguyên liệu bạn đã chọn..."],
-  ["Tính dinh dưỡng", "Đang tính xác định từ dữ liệu trên 100 g..."],
-  ["Kiểm tra an toàn", "Đang đối chiếu dị ứng và ngưỡng đánh giá..."],
-  ["Biên soạn report", "Đang rút gọn nội dung cho đúng hai trang..."],
-  ["Dựng PDF", "Đang tạo file A4 và metadata..."],
-] as const;
-
-// Overweight starts at BMI 23 for Vietnamese adults (QĐ 2892/BYT), matching the backend classification rules.
-const BMI_SCOPE_MIN = 23;
-function bmi(profile: Profile) { return profile.weightKg / ((profile.heightCm / 100) ** 2); }
-
-function Icon({ children, className = "" }: { children: React.ReactNode; className?: string }) {
-  return <span aria-hidden="true" className={`inline-flex size-5 shrink-0 items-center justify-center ${className}`}>{children}</span>;
-}
-
-function ToastMessage({ toast, close }: { toast: Toast; close: () => void }) {
-  if (!toast) return null;
-  return <div role="status" className={`fixed right-4 top-4 z-50 max-w-sm rounded-xl border px-4 py-3 text-sm shadow-card ${toast.tone === "error" ? "border-[#fecdd3] bg-[#fff0f3] text-[#be123c]" : "border-[#d9f99d] bg-[#f3fce7] text-[#3f6212]"}`}>
-    <div className="flex items-start gap-3"><span>{toast.tone === "error" ? "⚠" : "✓"}</span><span className="flex-1">{toast.text}</span><button onClick={close} aria-label="Đóng thông báo">×</button></div>
-  </div>;
-}
-
-function initials(user: SessionUser | null) { const source = user?.name || user?.email || "Demo"; return source.split(/[\s@.]+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase()).join(""); }
-
-function Avatar({ user }: { user: SessionUser | null }) {
-  // eslint-disable-next-line @next/next/no-img-element -- Google avatar host is external and tiny; next/image would need remotePatterns config.
-  if (user?.avatar_url) return <img src={user.avatar_url} alt="" referrerPolicy="no-referrer" className="size-9 rounded-full border border-[var(--border)] object-cover" />;
-  return <span className="grid size-9 place-items-center rounded-full border border-[var(--border)] bg-[var(--orange-soft)] text-sm font-semibold text-[var(--action)]" aria-hidden="true">{initials(user)}</span>;
-}
-
-function AccountCard({ user, onLogout }: { user: SessionUser | null; onLogout: () => void }) {
-  if (!user) return <div className="rounded-xl border border-[var(--border)] bg-[var(--cream)] p-4 text-center"><p className="text-sm font-semibold">Demo local</p><p className="mt-1 text-xs leading-5 text-[var(--muted)]">Kết nối Google thật được bật khi bạn thêm cấu hình OAuth.</p></div>;
-  return <div className="rounded-xl border border-[var(--border)] bg-[var(--cream)] p-4"><div className="flex items-center gap-3"><Avatar user={user} /><span className="min-w-0"><strong className="block truncate text-sm">{user.name ?? "Tài khoản Google"}</strong>{user.email && <small className="block truncate text-xs text-[var(--muted)]">{user.email}</small>}</span></div><button className="btn-secondary mt-3 w-full" onClick={onLogout}>Đăng xuất</button></div>;
-}
-
-function Sidebar({ view, setView, newRecipe, openToast, user, onLogout, threads = [], activeThreadId = null, onSelectThread, onNewThread, onDeleteThread }: { view: View; setView: (view: View) => void; newRecipe: () => void; openToast: (text: string) => void; user: SessionUser | null; onLogout: () => void; threads?: ChatThreadSummary[]; activeThreadId?: string | null; onSelectThread?: (threadId: string) => void; onNewThread?: () => void; onDeleteThread?: (threadId: string) => void }) {
-  const items: [View | "template", string, string][] = [["workspace", "⚗", "AI Agent"], ["history", "◷", "Lịch sử"], ["saved", "▣", "Công thức đã lưu"], ["template", "▤", "Mẫu công thức"], ["profile", "♙", "Hồ sơ sức khỏe"]];
-  return <aside className="hidden w-64 shrink-0 flex-col rounded-[24px] border border-[var(--border)] bg-white p-5 shadow-card xl:flex xl:h-full xl:overflow-hidden">
-    <button className="mb-6 flex items-center gap-3 text-left" onClick={() => setView("workspace")}><span className="grid size-8 place-items-center rounded-full border-[3px] border-[var(--brand)] text-lg font-bold text-[var(--brand)]">!</span><span><strong className="block text-lg">Fresh Citrus</strong><span className="text-xs text-[var(--muted)]">AI Wellness</span></span></button>
-    <button onClick={newRecipe} className="mb-4 flex min-h-12 items-center justify-center gap-2 rounded-xl bg-[var(--brand)] px-3 font-semibold text-white hover:bg-[var(--action)]">＋ Đoạn chat mới</button>
-    <nav className="space-y-1" aria-label="Điều hướng chính">
-      {items.map(([key, icon, label]) => <button key={key} onClick={() => key === "template" ? openToast("Mẫu công thức sẽ có ở phiên bản sau.") : setView(key)} className={`flex min-h-10 w-full items-center gap-3 rounded-xl px-3 text-left transition ${view === key ? "bg-[var(--orange-soft)] font-semibold text-[var(--brand)]" : "text-[var(--muted)] hover:bg-[var(--orange-soft)] hover:text-[var(--ink)]"}`}><Icon>{icon}</Icon>{label}</button>)}
-    </nav>
-    <div className="mt-4 flex min-h-0 flex-1 flex-col border-t border-[var(--border)] pt-3">
-      <div className="mb-2 flex items-center justify-between px-1">
-        <span className="text-[11px] font-semibold uppercase tracking-wider text-[var(--muted)]">Các phiên chat</span>
-        <button onClick={onNewThread} className="rounded px-1.5 py-0.5 text-xs font-semibold text-[var(--brand)] hover:bg-[var(--orange-soft)]" title="Tạo phiên mới">+ Mới</button>
-      </div>
-      <div className="flex-1 space-y-1 overflow-y-auto pr-1">
-        {threads.map((t) => {
-          const isActive = activeThreadId === t.id;
-          return <div key={t.id} onClick={() => onSelectThread?.(t.id)} className={`group flex cursor-pointer items-center justify-between rounded-xl px-2.5 py-2 text-xs transition ${isActive ? "border border-[#fdba74] bg-[var(--orange-soft)] font-semibold text-[var(--brand)]" : "text-[var(--ink)] hover:bg-[#fffaf5]"}`}>
-            <span className="truncate pr-1" title={t.title}>💬 {t.title}</span>
-            <button type="button" onClick={(e) => { e.stopPropagation(); onDeleteThread?.(t.id); }} className="hidden shrink-0 rounded p-1 text-[var(--muted)] hover:text-[#ef4444] group-hover:block" title="Xóa phiên này">×</button>
-          </div>;
-        })}
-        {threads.length === 0 && <p className="px-2 py-2 text-xs text-[var(--muted)]">Chưa có phiên chat nào.</p>}
-      </div>
-    </div>
-    <div className="border-t border-[var(--border)] pt-4"><AccountCard user={user} onLogout={onLogout} /></div>
-  </aside>;
-}
-
-function Topbar({ title, onMenu, openToast, user }: { title: string; onMenu: () => void; openToast: (text: string) => void; user: SessionUser | null }) {
-  return <header className="sticky top-0 z-30 flex min-h-16 shrink-0 items-center justify-between border-b border-[var(--border)] bg-white/95 px-4 shadow-[0_4px_20px_-4px_rgba(43,26,10,0.06)] backdrop-blur-md transition-all sm:px-6">
-    <div className="flex items-center gap-3">
-      <button className="grid size-10 place-items-center rounded-xl hover:bg-[var(--orange-soft)] xl:hidden" onClick={onMenu} aria-label="Mở điều hướng">☰</button>
-      <h1 className="text-base font-semibold tracking-tight text-[var(--ink)] sm:text-lg">{title}</h1>
-    </div>
-    <div className="flex items-center gap-3 sm:gap-6">
-      <span className="hidden items-center gap-2 rounded-full border border-[#bbf7d0] bg-[var(--green-soft)] px-3 py-1 text-xs font-semibold text-[var(--green-text)] shadow-xs sm:flex">
-        <span className="relative flex size-2">
-          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#22c55e] opacity-75"></span>
-          <span className="relative inline-flex size-2 rounded-full bg-[#22c55e]"></span>
-        </span>
-        Hệ thống ổn định
-      </span>
-      <button className="grid size-10 place-items-center rounded-full text-[var(--muted)] hover:bg-[var(--orange-soft)] transition" onClick={() => openToast("Thông báo sẽ có ở phiên bản sau.")} aria-label="Thông báo">♧</button>
-      <span title={user?.email ?? "Tài khoản demo"}><Avatar user={user} /><span className="sr-only">{user ? `Đã đăng nhập: ${user.name ?? user.email}` : "Tài khoản demo"}</span></span>
-    </div>
-  </header>;
-}
-
-function ContextPanel({ profile, selected, setView, report, openSelector, createReport, busy }: { profile: Profile; selected: Ingredient[]; setView: (view: View) => void; report: Report | null; openSelector: () => void; createReport: () => void; busy: boolean }) {
-  const currentBmi = bmi(profile);
-  return <aside className="order-first flex w-full shrink-0 flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-white shadow-card transition-all duration-300 hover:shadow-lg hover:border-[var(--brand)]/30 xl:order-none xl:w-80 xl:sticky xl:top-0 xl:self-start xl:z-20 xl:max-h-[calc(100vh-8.5rem)]">
-    <div className="sticky top-0 z-10 flex items-center justify-between border-b border-[var(--border)] bg-[#fffaf5]/95 px-4 py-3 backdrop-blur-md shadow-[0_2px_8px_-2px_rgba(43,26,10,0.06)]">
-      <div className="flex items-center gap-2">
-        <span className="text-base text-[var(--brand)]">📋</span>
-        <h2 className="text-sm font-bold text-[var(--ink)]">Thông tin & ngữ cảnh</h2>
-      </div>
-      <span className="inline-flex items-center gap-1.5 rounded-full border border-[#fdba74] bg-[var(--orange-soft)] px-2.5 py-0.5 text-[10px] font-bold text-[var(--brand)] shadow-xs">
-        <span className="size-1.5 rounded-full bg-[var(--brand)] animate-pulse" />
-        Ghim cố định
-      </span>
-    </div>
-    <div className="space-y-4 overflow-y-auto p-4 max-h-[calc(100vh-12.5rem)]">
-      <section className="relative rounded-xl border border-[var(--border)] bg-[var(--cream)] p-4">
-        <button onClick={() => setView("profile")} className="absolute right-3 top-3 rounded-md border border-[var(--border)] bg-white px-2 py-1 text-xs font-semibold hover:bg-[var(--orange-soft)]">Chỉnh sửa</button>
-        <h3 className="mb-2 text-sm font-semibold">Hồ sơ sức khỏe</h3>
-        <p className="pr-16 text-sm leading-5 text-[var(--muted)]">{profile.gender}, {profile.age} tuổi • {profile.heightCm}cm • {profile.weightKg}kg • BMI {currentBmi.toFixed(1)}</p>
-        <span className={`mt-2 inline-flex rounded-full px-2 py-1 text-xs font-semibold ${currentBmi >= BMI_SCOPE_MIN ? "bg-[var(--green-soft)] text-[var(--green-text)]" : "bg-[var(--yellow-soft)] text-[var(--yellow-text)]"}`}>{currentBmi >= BMI_SCOPE_MIN ? "Trong phạm vi tạo công thức" : "Ngoài phạm vi hiện tại"}</span>
-      </section>
-      <section className="rounded-xl border border-[var(--border)] bg-[var(--cream)] p-4">
-        <h3 className="mb-3 text-sm font-semibold">Dinh dưỡng công thức</h3>
-        {report ? <div className="space-y-3">
-          <div className="rounded-lg border border-[#fdba74] bg-white p-2">
-            <span className="block truncate text-xs font-semibold text-[var(--action)]">🍹 {report.name}</span>
-          </div>
-          <Metric label="Năng lượng / ly" value={`${report.nutrition.calories ?? "—"} kcal`} />
-          <Metric label="Protein / ly" value={`${report.nutrition.protein ?? "—"} g`} />
-          <p className="text-[11px] leading-4 text-[var(--muted)]">Ước tính mỗi khẩu phần từ dữ liệu tra cứu.</p>
-        </div> : <p className="text-xs leading-5 text-[var(--muted)]">Chưa có báo cáo. Các chỉ số cho một ly sinh tố sẽ hiện ở đây sau khi AI hoàn tất.</p>}
-      </section>
-      <section className="rounded-xl border border-[var(--border)] bg-[var(--cream)] p-4">
-        <div className="mb-3 flex items-center justify-between">
-          <h3 className="text-sm font-semibold">Nguyên liệu đã chọn ({selected.length})</h3>
-          <button onClick={openSelector} className="rounded-md border border-[var(--border)] bg-white px-2 py-1 text-xs font-semibold hover:bg-[var(--orange-soft)]">Chỉnh sửa</button>
-        </div>
-        <p className="mb-2 text-xs text-[var(--muted)]">📍 {profile.hometown} · Tháng {new Date().getMonth() + 1}</p>
-        <div className="flex max-h-32 flex-wrap gap-1.5 overflow-y-auto pr-1">
-          {selected.length ? selected.map((item) => <span key={item.id} className="rounded-lg border border-[var(--border)] bg-white px-2 py-1 text-xs">{item.emoji} {item.name}</span>) : <p className="text-xs text-[var(--muted)]">Hãy chọn trái cây muốn dùng.</p>}
-        </div>
-        <div className="mt-3 flex flex-col gap-2">
-          <button onClick={openSelector} className="text-left text-xs font-semibold text-[var(--brand)] hover:underline">Mở danh mục nguyên liệu →</button>
-          {selected.length > 0 && <button onClick={createReport} disabled={busy} className="btn-secondary min-h-9 w-full px-3 py-1.5 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-50">Tạo report với nguyên liệu này</button>}
-        </div>
-      </section>
-      <section className="rounded-xl border border-[var(--border)] bg-[var(--cream)] p-4">
-        <h3 className="mb-2 text-sm font-semibold">Lưu ý khác</h3>
-        <div className="flex flex-wrap gap-1.5">
-          {profile.allergies.map((item) => <span key={item} className="rounded-lg border border-[#fecdd3] bg-white px-2 py-1 text-xs text-[#be123c]">Dị ứng: {item}</span>)}
-          {profile.dislikes.map((item) => <span key={item} className="rounded-lg border border-[var(--border)] bg-white px-2 py-1 text-xs text-[var(--muted)]">Không thích: {item}</span>)}
-          {!profile.allergies.length && !profile.dislikes.length && <p className="text-xs text-[var(--muted)]">Không có lưu ý đặc biệt.</p>}
-        </div>
-      </section>
-    </div>
-  </aside>;
-}
-
-function Metric({ label, value }: { label: string; value: string }) { return <div><div className="mb-1 flex justify-between text-xs"><span className="text-[var(--muted)]">{label}</span><strong>{value}</strong></div><div className="h-1.5 rounded-full bg-[#e5e7eb]"><div className="h-full w-3/5 rounded-full bg-[#22c55e]" /></div></div>; }
-
-function IngredientPicker({ catalog, selectedIds, setSelectedIds, close }: { catalog: Ingredient[]; selectedIds: string[]; setSelectedIds: (ids: string[]) => void; close: () => void }) {
-  const [query, setQuery] = useState("");
-  const results = useMemo(() => catalog.filter((ingredient) => ingredient.name.toLowerCase().includes(query.toLowerCase())), [catalog, query]);
-  const toggle = (id: string) => setSelectedIds(selectedIds.includes(id) ? selectedIds.filter((item) => item !== id) : [...selectedIds, id]);
-  return <div className="fixed inset-0 z-40 grid place-items-end bg-[#2b1a0a]/35 p-0 backdrop-blur-sm sm:place-items-center sm:p-4" role="dialog" aria-modal="true" aria-labelledby="ingredient-title"><div className="w-full max-w-2xl rounded-t-[28px] border border-[var(--border)] bg-white p-5 shadow-card sm:rounded-[28px]"><div className="mb-4 flex items-start justify-between gap-4"><div><h2 id="ingredient-title" className="text-xl font-semibold">Chọn nguyên liệu của bạn</h2><p className="mt-1 text-sm text-[var(--muted)]">AI chỉ dùng trái cây và nguyên liệu phụ bạn đã chọn; nước và đá có thể được thêm.</p></div><button onClick={close} className="grid size-10 place-items-center rounded-full hover:bg-[var(--orange-soft)]" aria-label="Đóng">×</button></div><label className="sr-only" htmlFor="ingredient-search">Tìm nguyên liệu</label><input id="ingredient-search" className="field mb-4" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Tìm trái cây hoặc nguyên liệu phụ..." /><div className="grid max-h-[48vh] gap-2 overflow-auto sm:grid-cols-2">{results.map((ingredient) => <label key={ingredient.id} className={`flex min-h-16 cursor-pointer items-center gap-3 rounded-xl border p-3 ${selectedIds.includes(ingredient.id) ? "border-[var(--brand)] bg-[var(--orange-soft)]" : "border-[var(--border)] bg-white"}`}><input className="size-4 accent-[#c2410c]" type="checkbox" checked={selectedIds.includes(ingredient.id)} onChange={() => toggle(ingredient.id)} /><span className="text-2xl">{ingredient.emoji}</span><span className="flex-1"><span className="block text-sm font-semibold">{ingredient.name}</span><span className="block text-xs text-[var(--muted)]">{ingredient.kind === "fruit" ? ingredient.region : "Nguyên liệu phụ"}</span></span><SeasonBadge seasonal={ingredient.seasonal} /></label>)}</div><div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><button className="btn-secondary" onClick={close}>Hủy</button><button className="btn-primary" onClick={close}>Dùng {selectedIds.length} nguyên liệu</button></div></div></div>;
-}
-
-function SeasonBadge({ seasonal }: { seasonal: Ingredient["seasonal"] }) { const copy = seasonal === "in" ? "Đang mùa" : seasonal === "out" ? "Ngoài mùa" : "Chưa có dữ liệu"; const classes = seasonal === "in" ? "bg-[var(--green-soft)] text-[var(--green-text)]" : seasonal === "out" ? "bg-[var(--yellow-soft)] text-[var(--yellow-text)]" : "bg-[#f5f5f4] text-[var(--muted)]"; return <span className={`rounded-md px-2 py-1 text-[10px] font-semibold ${classes}`}>{copy}</span>; }
-
-function Processing({ current }: { current: number }) { return <div className="grid gap-5 lg:grid-cols-[256px_minmax(0,1fr)]"><section className="rounded-2xl border border-[var(--border)] bg-[#fffaf5] p-5"><h2 className="mb-6 font-semibold">AI đang xử lý yêu cầu</h2><ol className="space-y-5">{steps.map(([title, copy], index) => <li key={title} className="relative flex gap-3"><span className={`z-10 grid size-6 place-items-center rounded-full border-2 text-xs ${index < current ? "border-white bg-[#22c55e] text-white" : index === current ? "border-white bg-[var(--brand)] text-white" : "border-[#cbd5e1] bg-white text-[#94a3b8]"}`}>{index < current ? "✓" : index + 1}</span><span className={index > current ? "opacity-50" : ""}><strong className="block text-sm">{title}</strong><span className="mt-1 block text-xs text-[var(--muted)]">{index === current ? copy : index < current ? "Đã hoàn tất" : "Đang chờ bước trước"}</span></span></li>)}</ol></section><section className="rounded-2xl border border-[var(--border)] bg-[#fffaf5] p-6"><span className="inline-flex items-center gap-2 rounded-full bg-[var(--orange-soft)] px-3 py-1 text-xs font-semibold text-[var(--action)]"><i className="size-2 animate-pulse rounded-full bg-[var(--brand)]" /> Đang tạo báo cáo</span><h2 className="mt-5 text-2xl font-semibold">{steps[Math.min(current, steps.length - 1)][0]}...</h2><p className="mt-2 max-w-xl leading-6 text-[var(--muted)]">AI đang sử dụng hồ sơ, vùng TP. Hồ Chí Minh và danh sách nguyên liệu bạn đã xác nhận. Bạn có thể dừng yêu cầu bất cứ lúc nào.</p><div className="mt-8 grid gap-3 sm:grid-cols-2"><InfoBox label="Mục tiêu" value="Quản lý cân nặng" icon="⚖" /><InfoBox label="Đang dùng" value="Hồ sơ và nguyên liệu đã chọn" icon="◌" /></div><div className="mt-4 rounded-xl border border-[var(--border)] bg-white p-4"><p className="text-sm font-semibold">Kiểm tra minh bạch</p><p className="mt-1 text-sm text-[var(--muted)]">Số liệu sẽ được gắn trạng thái đầy đủ hoặc ước tính. Khi thiếu dữ liệu, báo cáo sẽ nói rõ.</p></div></section></div>; }
-
-function InfoBox({ label, value, icon }: { label: string; value: string; icon: string }) { return <div className="flex items-center gap-3 rounded-xl border border-[var(--border)] bg-white p-4"><span className="grid size-10 place-items-center rounded-full bg-[var(--green-soft)] text-lg">{icon}</span><span><small className="block text-[var(--muted)]">{label}</small><strong className="block text-sm">{value}</strong></span></div>; }
-
-function EmptyWorkspace({ selectIngredients, start, blocked }: { selectIngredients: () => void; start: () => void; blocked: boolean }) { return <div className="grid min-h-[500px] place-items-center rounded-2xl border border-dashed border-[var(--border)] bg-[#fffaf5] p-6 text-center"><div className="max-w-lg"><span className="mx-auto grid size-16 place-items-center rounded-3xl bg-[var(--orange-soft)] text-3xl">🥤</span><h2 className="mt-5 text-2xl font-semibold">Chọn trái cây cho ly sinh tố hôm nay</h2><p className="mt-3 leading-6 text-[var(--muted)]">Bắt đầu từ nguyên liệu theo vùng của bạn. AI sẽ chỉ dùng danh sách bạn xác nhận và kiểm tra lại dị ứng, sở thích cùng ràng buộc dinh dưỡng.</p>{blocked ? <div className="mt-5 rounded-xl border border-[#fde68a] bg-[var(--yellow-soft)] p-4 text-left text-sm text-[var(--yellow-text)]">Hồ sơ hiện ngoài phạm vi thử nghiệm BMI ≥ 23. Bạn vẫn có thể xem dữ liệu demo, nhưng API thật sẽ chưa tạo công thức.</div> : null}<div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row"><button className="btn-secondary" onClick={selectIngredients}>Chọn nguyên liệu</button><button className="btn-primary" onClick={start}>Tạo báo cáo PDF</button></div></div></div>; }
-
-const PROMPT_SUGGESTIONS = ["Tìm hiểu dinh dưỡng của chuối", "So sánh cam và bưởi", "Tôi tiền đái tháo đường uống xoài được không?", "Tạo sinh tố giàu chất xơ với ổi"];
-function PromptBox({ onSubmit, disabled, busy, onStop, openToast }: { onSubmit: (prompt: string) => void; disabled: boolean; busy: boolean; onStop: () => void; openToast: (text: string) => void }) { const [value, setValue] = useState(""); const submit = () => { if (value.trim() && !busy) { onSubmit(value.trim()); setValue(""); } };
-  const keyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => { if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); submit(); } };
-  return <section className="mt-6 rounded-2xl border border-[#fdba74] bg-[#fffaf5] p-4 shadow-card"><label htmlFor="prompt" className="text-sm text-[var(--muted)]">Hỏi trợ lý về dinh dưỡng, hoặc yêu cầu tạo công thức và report PDF</label><div className="my-3 flex flex-wrap gap-2">{PROMPT_SUGGESTIONS.map((text) => <button key={text} onClick={() => onSubmit(text)} disabled={disabled || busy} className="rounded-lg border border-[var(--border)] bg-white px-3 py-1.5 text-xs hover:border-[#fdba74] disabled:opacity-50">{text}</button>)}</div><div className="flex items-end gap-2"><button onClick={() => openToast("Nhập bằng giọng nói sẽ có ở phiên bản sau.")} className="grid size-10 place-items-center rounded-xl text-[var(--muted)] hover:bg-[var(--orange-soft)]" aria-label="Nhập bằng giọng nói">♩</button><button onClick={() => openToast("Đính kèm tệp sẽ có ở phiên bản sau.")} className="grid size-10 place-items-center rounded-xl text-[var(--muted)] hover:bg-[var(--orange-soft)]" aria-label="Đính kèm tệp">⌇</button><textarea id="prompt" value={value} onChange={(event) => setValue(event.target.value)} onKeyDown={keyDown} rows={1} className="field min-h-11 resize-none" placeholder="Ví dụ: Dinh dưỡng của chuối? So sánh cam và bưởi? Tạo sinh tố ít đường từ ổi…" disabled={disabled} />{busy ? <button onClick={onStop} className="grid size-11 place-items-center rounded-xl border border-[var(--border)] bg-white text-[var(--ink)] hover:bg-[var(--orange-soft)]" aria-label="Dừng câu trả lời">■</button> : <button onClick={submit} disabled={disabled || !value.trim()} className="grid size-11 place-items-center rounded-xl bg-[var(--brand)] text-white hover:bg-[var(--action)] disabled:cursor-not-allowed disabled:opacity-50" aria-label="Gửi câu hỏi">➤</button>}</div></section>; }
-
-function ConfirmationPanel({ pending, catalog, confirm, cancel }: { pending: PendingConfirmation; catalog: Ingredient[]; confirm: (ids: string[]) => void; cancel: () => void }) {
-  const [accepted, setAccepted] = useState<string[]>(pending.proposal.suggested_ingredient_ids);
-  const suggestions = pending.proposal.ingredients.filter((item) => pending.proposal.suggested_ingredient_ids.includes(item.ingredient_id));
-  const name = (id: string) => catalog.find((item) => item.id === id)?.name ?? id;
-  const toggle = (id: string) => setAccepted((items) => items.includes(id) ? items.filter((item) => item !== id) : [...items, id]);
-  return <section className="rounded-2xl border border-[#fde68a] bg-[var(--yellow-soft)] p-5 shadow-card sm:p-6" aria-labelledby="confirmation-title">
-    <span className="inline-flex rounded-full bg-white px-3 py-1 text-xs font-semibold text-[var(--yellow-text)]">Đang chờ bạn xác nhận</span>
-    <h2 id="confirmation-title" className="mt-4 text-2xl font-semibold">AI đề nghị bổ sung nguyên liệu</h2>
-    <p className="mt-2 max-w-2xl leading-6 text-[var(--muted)]">Các nguyên liệu dưới đây chưa được đưa vào report. Chọn phần bạn đồng ý, sau đó hệ thống sẽ tạo lại và kiểm tra toàn bộ công thức.</p>
-    <div className="mt-5 space-y-3">{suggestions.map((item) => <label key={item.ingredient_id} className="flex cursor-pointer items-start gap-3 rounded-xl border border-[var(--border)] bg-white p-4"><input type="checkbox" className="mt-1 size-4 accent-[#c2410c]" checked={accepted.includes(item.ingredient_id)} onChange={() => toggle(item.ingredient_id)} /><span><strong className="block">{name(item.ingredient_id)} · {item.amount} {item.unit}</strong><span className="mt-1 block text-sm leading-5 text-[var(--muted)]">{item.reason}</span></span></label>)}</div>
-    <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end"><button className="btn-secondary" onClick={cancel}>Hủy đề xuất</button><button className="btn-primary" onClick={() => confirm(accepted)}>Xác nhận và kiểm tra lại</button></div>
-  </section>;
-}
-
-function ReportView({ report, toggleSaved, openToast }: { report: Report; toggleSaved: () => void; openToast: (text: string) => void }) { const [tab, setTab] = useState<"recipe" | "nutrition">("recipe"); const nutrients = [["Năng lượng", report.nutrition.calories, "kcal"], ["Protein", report.nutrition.protein, "g"], ["Carbohydrate", report.nutrition.carbs, "g"], ["Chất béo", report.nutrition.fat, "g"], ["Chất xơ", report.nutrition.fiber, "g"], ["Đường", report.nutrition.sugar, "g"]];
-  return <section className="rounded-2xl border border-[var(--border)] bg-white p-4 shadow-card sm:p-6"><div className="flex flex-col gap-4 border-b border-[var(--border)] pb-5 sm:flex-row sm:items-start sm:justify-between"><div><span className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${report.decision === "pass" ? "bg-[var(--green-soft)] text-[var(--green-text)]" : "bg-[var(--yellow-soft)] text-[var(--yellow-text)]"}`}>{report.decision === "pass" ? "Đã đạt kiểm tra" : "Cần xem xét"}</span><h2 className="mt-3 text-2xl font-semibold">{report.name}</h2><p className="mt-1 text-sm text-[var(--muted)]">1 khẩu phần · Khoảng 350 ml · 8 phút chuẩn bị · {report.createdAt}</p></div><div className="flex flex-wrap gap-2"><button className="btn-secondary" onClick={() => navigator.clipboard?.writeText(report.name).then(() => openToast("Đã sao chép tên công thức."))}>Sao chép</button>{report.pdfUrl && <a className="btn-primary" href={report.pdfUrl}>Tải PDF 2 trang</a>}<button className="btn-secondary" onClick={toggleSaved}>{report.saved ? "Đã lưu ✓" : "Lưu report"}</button></div></div><div className="mt-5 flex gap-2 border-b border-[var(--border)]" role="tablist"><button role="tab" aria-selected={tab === "recipe"} onClick={() => setTab("recipe")} className={`border-b-2 px-3 pb-3 text-sm font-semibold ${tab === "recipe" ? "border-[var(--brand)] text-[var(--action)]" : "border-transparent text-[var(--muted)]"}`}>Công thức</button><button role="tab" aria-selected={tab === "nutrition"} onClick={() => setTab("nutrition")} className={`border-b-2 px-3 pb-3 text-sm font-semibold ${tab === "nutrition" ? "border-[var(--brand)] text-[var(--action)]" : "border-transparent text-[var(--muted)]"}`}>Dinh dưỡng & gợi ý</button></div>
-    {tab === "recipe" ? <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1fr)_280px]"><div className="space-y-6"><Card title="Thành phần">{report.ingredients.map((item) => <div key={item.name} className={`flex items-start justify-between gap-3 border-b border-[var(--border)] py-3 last:border-0 ${item.used ? "" : "opacity-55"}`}><span><strong className="block text-sm">{item.name}{!item.used && " · không dùng"}</strong><span className="text-sm text-[var(--muted)]">{item.purpose}</span></span><strong className="text-sm">{item.amount}</strong></div>)}</Card><Card title="Dụng cụ chuẩn bị"><div className="flex flex-wrap gap-2">{report.tools.map((tool) => <span key={tool} className="rounded-lg bg-[var(--orange-soft)] px-3 py-2 text-sm">{tool}</span>)}</div></Card><Card title="Cách thực hiện"><ol className="space-y-4">{report.steps.map((step, index) => <li key={step} className="flex gap-3"><span className="grid size-7 shrink-0 place-items-center rounded-full bg-[var(--orange-soft)] text-sm font-semibold text-[var(--action)]">{index + 1}</span><p className="pt-0.5 text-sm leading-6 text-[var(--muted)]">{step}</p></li>)}</ol></Card></div><div className="space-y-4"><Card title="Tóm tắt một khẩu phần"><div className="grid grid-cols-2 gap-3">{nutrients.slice(0, 4).map(([label, value, unit]) => <div key={String(label)} className="rounded-xl bg-[var(--cream)] p-3"><span className="block text-xs text-[var(--muted)]">{label}</span><strong className="mt-1 block">{value ?? "—"} {value !== null ? unit : ""}</strong></div>)}</div></Card><div className="rounded-xl border border-[#fde68a] bg-[var(--yellow-soft)] p-4 text-sm leading-6 text-[var(--yellow-text)]"><strong className="block text-[var(--ink)]">Lưu ý</strong>{report.warning}</div><Card title="Vì sao phù hợp"><p className="text-sm leading-6 text-[var(--muted)]">{report.reason}</p></Card></div></div> : <div className="mt-6 space-y-5"><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{nutrients.map(([label, value, unit]) => <div key={String(label)} className="rounded-xl border border-[var(--border)] bg-[var(--cream)] p-4"><span className="text-sm text-[var(--muted)]">{label}</span><strong className="mt-1 block text-2xl">{value ?? "Chưa đủ dữ liệu"}{value !== null && <small className="ml-1 text-sm font-medium">{unit}</small>}</strong><span className="mt-2 block text-xs text-[var(--muted)]">Ước tính trên một khẩu phần</span></div>)}</div><Card title="Gợi ý dựa trên hướng dẫn dinh dưỡng"><p className="text-sm leading-6 text-[var(--muted)]">Công thức hạn chế đường thêm vào và ưu tiên chất xơ cùng protein thực vật. Một chế độ ăn lành mạnh vẫn cần đa dạng thực phẩm, vận động phù hợp và theo dõi cùng chuyên gia nếu bạn có tình trạng sức khỏe cần lưu ý.</p><p className="mt-3 text-xs text-[var(--muted)]">AI tổng hợp nội dung tham khảo, không phải tư vấn y tế cá nhân.</p></Card><Card title="Nguồn và thông tin đã dùng"><ul className="space-y-2 text-sm text-[var(--muted)]">{report.sources.map((source) => <li key={source}>• {source}</li>)}<li>• Hồ sơ tại thời điểm tạo · TP. Hồ Chí Minh · Phiên bản {report.version}</li></ul></Card></div>}
-    <div className="mt-6 rounded-xl border border-[var(--border)] bg-[var(--cream)] p-4"><strong>Muốn thay đổi công thức?</strong><p className="mt-1 text-sm text-[var(--muted)]">Hỏi trợ lý bên dưới để so sánh hoặc tìm nguyên liệu phù hợp hơn, rồi chọn lại và tạo report mới.</p></div>
-  </section>; }
-
-function Card({ title, children }: { title: string; children: React.ReactNode }) { return <section className="rounded-xl border border-[var(--border)] p-4"><h3 className="mb-3 font-semibold">{title}</h3>{children}</section>; }
-
-function ProfileForm({ profile, save, cancel }: { profile: Profile; save: (profile: Profile) => void; cancel: () => void }) { const [draft, setDraft] = useState(profile); const [step, setStep] = useState(0); const set = <K extends keyof Profile>(key: K, value: Profile[K]) => setDraft((old) => ({ ...old, [key]: value })); const canContinue = step !== 0 || (draft.age >= 18 && draft.heightCm >= 100 && draft.weightKg > 25);
-  if (step === 1) return <div className="mx-auto max-w-3xl p-4 sm:p-8"><div className="soft-card overflow-hidden"><div className="border-b border-[var(--border)] bg-[var(--cream)] p-6"><span className="text-sm font-semibold text-[var(--action)]">Bước 2/4</span><h1 className="mt-2 text-2xl font-semibold">Dị ứng & ghi chú</h1><p className="mt-2 text-sm text-[var(--muted)]">Xác nhận rõ trạng thái giúp hệ thống không tự suy đoán rủi ro sức khỏe.</p></div><div className="min-h-80 space-y-5 p-6"><TagEditor label="Dị ứng" help="Chỉ để trống khi bạn chưa chắc." values={draft.allergies} onChange={(value) => set("allergies", value)} suggestions={["Sữa", "Đậu nành", "Hạt"]} /><div><label className="mb-2 block text-sm font-semibold" htmlFor="restriction-status">Bạn có hạn chế dinh dưỡng do tình trạng sức khỏe không?</label><select id="restriction-status" className="field" value={draft.healthRestrictionStatus} onChange={(event) => set("healthRestrictionStatus", event.target.value as Profile["healthRestrictionStatus"])}><option value="unknown">Chưa rõ / chưa xác nhận</option><option value="no">Không có</option><option value="yes">Có</option></select></div><div><label className="mb-2 block text-sm font-semibold" htmlFor="notes">Ghi chú sức khỏe</label><textarea id="notes" className="field min-h-28" value={draft.notes} onChange={(event) => set("notes", event.target.value)} placeholder="Ví dụ: cần theo dõi đường huyết..." /><p className="mt-2 text-xs text-[var(--muted)]">Kết quả có ghi chú hoặc chưa xác nhận sẽ được đánh dấu cần xem xét.</p></div></div><div className="flex flex-col-reverse gap-3 border-t border-[var(--border)] p-6 sm:flex-row sm:justify-between"><button className="btn-secondary" onClick={() => setStep(0)}>Quay lại</button><button className="btn-primary" onClick={() => setStep(2)}>Tiếp tục</button></div></div></div>;
-  return <div className="mx-auto max-w-3xl p-4 sm:p-8"><div className="soft-card overflow-hidden"><div className="border-b border-[var(--border)] bg-[var(--cream)] p-6"><span className="text-sm font-semibold text-[var(--action)]">Bước {step + 1}/4</span><h1 className="mt-2 text-2xl font-semibold">{["Thông tin cơ thể", "Dị ứng & ghi chú", "Khẩu vị & quê quán", "Xem lại hồ sơ"][step]}</h1><p className="mt-2 text-sm text-[var(--muted)]">Thông tin này giúp AI tạo công thức phù hợp hơn. Bạn luôn có thể sửa sau.</p></div><div className="min-h-80 p-6">{step === 0 && <div className="grid gap-4 sm:grid-cols-2"><Field label="Tuổi" type="number" value={draft.age} onChange={(value) => set("age", Number(value))} /><div><label className="mb-2 block text-sm font-semibold">Giới tính</label><select className="field" value={draft.gender} onChange={(event) => set("gender", event.target.value)}><option>Nữ</option><option>Nam</option><option>Khác</option></select></div><Field label="Chiều cao (cm)" type="number" value={draft.heightCm} onChange={(value) => set("heightCm", Number(value))} /><Field label="Cân nặng (kg)" type="number" value={draft.weightKg} onChange={(value) => set("weightKg", Number(value))} /><p className="sm:col-span-2 text-sm text-[var(--muted)]">BMI ước tính: <strong className="text-[var(--ink)]">{bmi(draft).toFixed(1)}</strong>. Phiên bản thử nghiệm hiện phục vụ người trưởng thành BMI ≥ 23.</p></div>}{step === 1 && <div className="space-y-5"><TagEditor label="Dị ứng" help="Để trống chỉ khi bạn chưa chắc; chọn “Không có dị ứng” khi đã xác nhận." values={draft.allergies} onChange={(value) => set("allergies", value)} suggestions={["Sữa", "Đậu nành", "Hạt"]} /><div><label className="mb-2 block text-sm font-semibold" htmlFor="notes">Ghi chú sức khỏe</label><textarea id="notes" className="field min-h-28" value={draft.notes} onChange={(event) => set("notes", event.target.value)} placeholder="Ví dụ: cần theo dõi đường huyết..." /><p className="mt-2 text-xs text-[var(--muted)]">Đây là bối cảnh cần xem xét, không phải chẩn đoán.</p></div></div>}{step === 2 && <div className="space-y-5"><TagEditor label="Nhóm thực phẩm yêu thích" values={draft.preferences} onChange={(value) => set("preferences", value)} suggestions={["Trái cây nhiệt đới Việt Nam", "Nhiều chất xơ", "Ít đường"]} /><TagEditor label="Nguyên liệu không thích" values={draft.dislikes} onChange={(value) => set("dislikes", value)} suggestions={["Chuối", "Bơ", "Rau bina"]} /><div><label className="mb-2 block text-sm font-semibold">Quê quán</label><select className="field" value={draft.hometown} onChange={(event) => set("hometown", event.target.value)}><option>TP. Hồ Chí Minh</option><option>Hà Nội</option><option>Nghệ An</option><option>Cần Thơ</option><option>Đà Nẵng</option></select><p className="mt-2 text-xs text-[var(--muted)]">Khu vực hiện tại hoặc khu vực chọn tay sẽ được ưu tiên khi gợi ý nguyên liệu.</p></div></div>}{step === 3 && <div className="space-y-4"><ReviewRow label="Cơ thể" value={`${draft.gender}, ${draft.age} tuổi · ${draft.heightCm}cm · ${draft.weightKg}kg · BMI ${bmi(draft).toFixed(1)}`} /><ReviewRow label="Dị ứng" value={draft.allergies.length ? draft.allergies.join(", ") : "Chưa xác nhận"} /><ReviewRow label="Khẩu vị" value={draft.preferences.join(", ") || "Chưa có"} /><ReviewRow label="Không thích" value={draft.dislikes.join(", ") || "Không có"} /><ReviewRow label="Quê quán" value={draft.hometown} /><ReviewRow label="Ghi chú" value={draft.notes || "Không có"} /></div>}</div><div className="flex flex-col-reverse gap-3 border-t border-[var(--border)] p-6 sm:flex-row sm:justify-between"><button className="btn-secondary" onClick={step === 0 ? cancel : () => setStep(step - 1)}>{step === 0 ? "Hủy" : "Quay lại"}</button><button className="btn-primary" disabled={!canContinue} onClick={() => step === 3 ? save(draft) : setStep(step + 1)}>{step === 3 ? "Hoàn tất hồ sơ" : "Tiếp tục"}</button></div></div></div>; }
-
-function Field({ label, type, value, onChange }: { label: string; type: string; value: number; onChange: (value: string) => void }) { return <div><label className="mb-2 block text-sm font-semibold">{label}</label><input className="field" type={type} value={value} onChange={(event) => onChange(event.target.value)} /></div>; }
-function TagEditor({ label, values, onChange, suggestions, help }: { label: string; values: string[]; onChange: (values: string[]) => void; suggestions: string[]; help?: string }) { const toggle = (item: string) => onChange(values.includes(item) ? values.filter((value) => value !== item) : [...values, item]); return <div><label className="block text-sm font-semibold">{label}</label>{help && <p className="mt-1 text-xs text-[var(--muted)]">{help}</p>}<div className="mt-3 flex flex-wrap gap-2">{suggestions.map((item) => <button type="button" key={item} onClick={() => toggle(item)} className={`rounded-lg border px-3 py-2 text-sm ${values.includes(item) ? "border-[var(--brand)] bg-[var(--orange-soft)] text-[var(--action)]" : "border-[var(--border)] bg-white"}`}>{values.includes(item) ? "✓ " : "+ "}{item}</button>)}</div></div>; }
-function ReviewRow({ label, value }: { label: string; value: string }) { return <div className="rounded-xl border border-[var(--border)] bg-[var(--cream)] p-4"><span className="block text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">{label}</span><strong className="mt-1 block text-sm">{value}</strong></div>; }
-
-function SignIn({ continueDemo, reference, live, checking }: { continueDemo: () => void; reference: () => void; live: boolean; checking: boolean }) { return <main className="grid min-h-screen place-items-center bg-[var(--cream)] p-4"><section className="grid w-full max-w-5xl overflow-hidden rounded-[28px] border border-[var(--border)] bg-white shadow-card md:grid-cols-[1.1fr_.9fr]"><div className="p-8 sm:p-12"><div className="flex items-center gap-3"><span className="grid size-9 place-items-center rounded-full bg-[var(--brand)] font-bold text-white">C</span><strong>Fresh Citrus</strong></div><p className="mt-12 text-sm font-semibold text-[var(--action)]">AI WELLNESS</p><h1 className="mt-3 max-w-lg font-[family-name:var(--font-ui)] text-4xl font-semibold leading-tight sm:text-5xl">Bắt đầu một thói quen tươi mới.</h1><p className="mt-5 max-w-lg text-base leading-7 text-[var(--muted)]">Tạo công thức sinh tố phù hợp với hồ sơ sức khỏe, nguyên liệu bạn chọn và vùng đang sống.</p>{live ? checking ? <p className="btn-secondary mt-8 w-full sm:w-auto" role="status" aria-live="polite"><i className="size-2 animate-pulse rounded-full bg-[var(--brand)]" />Đang kiểm tra phiên đăng nhập…</p> : <a className="btn-primary mt-8 w-full no-underline sm:w-auto" href={googleLoginUrl}><span className="grid size-5 place-items-center rounded-full bg-white text-xs text-[#4285f4]">G</span>Tiếp tục với Google</a> : <button className="btn-primary mt-8 w-full sm:w-auto" onClick={continueDemo}><span className="grid size-5 place-items-center rounded-full bg-white text-xs text-[#4285f4]">G</span>Tiếp tục với Google</button>}<p className="mt-3 text-xs text-[var(--muted)]">{live ? "Chúng tôi chỉ dùng tên, email và ảnh đại diện Google để lưu báo cáo của riêng bạn." : "Demo local đang bật: nút này đưa bạn vào luồng kiểm thử. Google thật cần cấu hình OAuth trên server."}</p><button onClick={reference} className="mt-7 text-sm font-semibold text-[var(--action)] hover:underline">Xem màn hình chờ đối chiếu →</button></div><div className="relative min-h-72 overflow-hidden bg-[var(--orange-soft)] p-8"><div className="absolute -right-10 -top-12 size-56 rounded-full bg-[#facc15] opacity-70" /><div className="absolute -bottom-16 -left-12 size-64 rounded-full bg-[#84cc16] opacity-45" /><div className="relative mt-20 rounded-2xl border border-white/80 bg-white/90 p-5 shadow-card"><span className="text-4xl">🥭</span><h2 className="mt-3 text-lg font-semibold">Nguyên liệu bạn chọn</h2><p className="mt-2 text-sm leading-6 text-[var(--muted)]">Rõ nguồn gốc, rõ ngữ cảnh và luôn có quyền điều chỉnh trước khi tạo.</p></div></div></section></main>; }
-
-function ReferenceScreen({ back }: { back: () => void }) { return <main className="reference-ui min-h-screen bg-[#fcf9f5] p-4 text-[#372d25]"><button onClick={back} className="mb-3 rounded-lg border border-[#f3e8df] bg-white px-3 py-2 text-sm">← Quay lại</button><div className="grid min-h-[calc(100vh-5rem)] gap-4 xl:grid-cols-[320px_minmax(0,1fr)_400px]"><aside className="rounded-2xl border border-[#f3e8df] bg-white p-6 shadow-card"><div className="flex items-center gap-3"><span className="grid size-8 place-items-center rounded-full border-[3px] border-[#f97316] text-[#f97316]">!</span><span><b className="block text-lg">Fresh Citrus</b><small className="text-[#786c62]">AI Wellness</small></span></div><button className="mt-10 w-full rounded-xl bg-[#f97316] py-4 font-semibold text-white">＋ Tạo công thức mới</button><div className="mt-8 space-y-2 text-[#786c62]"><p className="rounded-xl bg-[#fdf2e9] px-3 py-3 font-semibold text-[#f97316]">⚗ AI Agent</p><p className="px-3 py-3">◷ Lịch sử</p><p className="px-3 py-3">▣ Công thức đã lưu</p><p className="px-3 py-3">▤ Mẫu công thức</p><p className="px-3 py-3">♙ Hồ sơ sức khỏe</p></div></aside><section className="overflow-hidden rounded-2xl border border-[#f3e8df] bg-white shadow-card"><header className="flex h-20 items-center justify-between border-b border-[#f3e8df] px-7"><h1 className="text-xl font-semibold">AI Agent – Tạo công thức sinh tố</h1><span className="text-sm text-[#786c62]">● Hệ thống ổn định　♧　♧　◯</span></header><div className="grid gap-6 p-7 lg:grid-cols-[320px_minmax(0,1fr)]"><section className="rounded-2xl border border-[#f3e8df] bg-[#fffaf5] p-6"><h2 className="mb-7 font-semibold">AI đang xử lý yêu cầu của bạn</h2>{steps.map(([title, text], index) => <div className="mb-7 flex gap-4" key={title}><span className={`grid size-6 place-items-center rounded-full border-4 border-white text-xs ${index === 0 ? "bg-[#22c55e] text-white" : "border-[#cbd5e1] bg-white text-[#94a3b8]"}`}>{index === 0 ? "✓" : index + 1}</span><span className={index ? "opacity-50" : ""}><b className="block text-sm">{title}</b><small className="mt-1 block text-[#786c62]">{text}</small></span></div>)}</section><section className="rounded-2xl border border-[#f3e8df] bg-[#fffaf5] p-7"><h2 className="text-xl font-semibold">Phân tích mục tiêu của bạn...</h2><p className="mt-2 text-[#786c62]">Mình đang hiểu nhu cầu và sở thích của bạn để tạo công thức phù hợp nhất.</p><div className="mt-7 grid gap-4 sm:grid-cols-2"><InfoBox label="Mục tiêu chính" value="Quản lý cân nặng" icon="⚖" /><InfoBox label="Khẩu vị" value="Ưa ngọt nhẹ, thích trái cây" icon="☺" /></div><Card title="Nguyên liệu bạn có"><div className="flex flex-wrap gap-2"><span className="rounded-lg border border-[#f3e8df] bg-[#fdf2e9] px-3 py-2">Chuối</span><span className="rounded-lg border border-[#f3e8df] bg-[#fdf2e9] px-3 py-2">Yến mạch</span><span className="rounded-lg border border-[#f3e8df] bg-[#fdf2e9] px-3 py-2">Sữa hạnh nhân</span></div></Card></section></div></section><aside className="rounded-2xl border border-[#f3e8df] bg-white shadow-card"><header className="border-b border-[#f3e8df] p-6"><h2 className="font-semibold">Thông tin & ngữ cảnh</h2></header><div className="space-y-4 p-5"><section className="rounded-xl border border-[#f3e8df] bg-[#fffaf5] p-4"><b>Hồ sơ sức khỏe</b><p className="mt-3 text-sm text-[#786c62]">Nữ, 28 tuổi • 160cm • 55kg • BMI 21.5 (Bình thường)</p></section><section className="rounded-xl border border-[#f3e8df] bg-[#fffaf5] p-4"><b>Mục tiêu dinh dưỡng</b><Metric label="Calorie/ngày" value="1800 kcal" /><Metric label="Protein" value="80g" /></section></div></aside></div></main>; }
+const TITLES: Record<View, string> = {
+  signin: "Fresh Citrus", onboarding: "Thiết lập hồ sơ", workspace: "Trợ lý dinh dưỡng",
+  history: "Lịch sử công thức", saved: "Công thức đã lưu", profile: "Hồ sơ sức khỏe",
+};
 
 export default function Home() {
-  const [view, setView] = useState<View>("signin"); const [profile, setProfile] = useState<Profile>(defaultProfile); const [selectedIds, setSelectedIds] = useState<string[]>([]); const [catalog, setCatalog] = useState<Ingredient[]>(ingredients); const [showPicker, setShowPicker] = useState(false); const [generation, dispatchGeneration] = useReducer(generationReducer, initialGenerationState); const report = generation.report; const status = generation.phase; const progress = generation.activeStep; const [toast, setToast] = useState<Toast>(null); const [menu, setMenu] = useState(false); const abortRef = useRef<AbortController | null>(null); const profileHydrated = useRef(false); const workspaceScrollRef = useRef<HTMLDivElement>(null); const reportSectionRef = useRef<HTMLDivElement>(null);
+  const [view, setView] = useState<View>("signin");
+  const [profile, setProfile] = useState<Profile>(emptyProfile);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [catalog, setCatalog] = useState<Ingredient[]>([]);
+  const [catalogStatus, setCatalogStatus] = useState<CatalogStatus>("loading");
+  const [catalogAttempt, setCatalogAttempt] = useState(0);
+  const [showPicker, setShowPicker] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [contextOpen, setContextOpen] = useState(false);
+  const [generation, dispatchGeneration] = useReducer(generationReducer, initialGenerationState);
+  const [toast, setToast] = useState<Toast>(null);
   const [sessionReports, setSessionReports] = useState<Report[]>([]);
   const [activeReportId, setActiveReportId] = useState<string | null>(null);
+  const [user, setUser] = useState<SessionUser | null>(null);
+  const [checkingSession, setCheckingSession] = useState(true);
+  const abortRef = useRef<AbortController | null>(null);
+  const profileHydrated = useRef(false);
+  const toastTimer = useRef<number | undefined>(undefined);
+  const reportSectionRef = useRef<HTMLDivElement>(null);
+
+  const report = generation.report;
+  const status = generation.phase;
   const currentReport = sessionReports.find((r) => r.id === activeReportId) ?? sessionReports[sessionReports.length - 1] ?? report;
-  const live = appMode === "live"; const [user, setUser] = useState<SessionUser | null>(null); const [checkingSession, setCheckingSession] = useState(live);
+  const selected = catalog.filter((ingredient) => selectedIds.includes(ingredient.id));
+
+  const openToast = useCallback((text: string, tone: "success" | "error" = "success") => {
+    window.clearTimeout(toastTimer.current);
+    setToast({ text, tone });
+    toastTimer.current = window.setTimeout(() => setToast(null), tone === "error" ? 6000 : 4200);
+  }, []);
+  const scrollToReport = () => window.setTimeout(() => reportSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 120);
+
   // eslint-disable-next-line react-hooks/set-state-in-effect -- hydrate profile from localStorage on mount
   useEffect(() => { const saved = restoreProfile(); if (saved) setProfile(saved); profileHydrated.current = true; }, []);
   useEffect(() => { if (profileHydrated.current) persistProfile(profile, user?.id); }, [profile, user?.id]);
   useEffect(() => {
-    if (!live) return;
     const url = new URL(window.location.href); const authError = url.searchParams.get("auth_error");
     if (authError) { url.searchParams.delete("auth_error"); window.history.replaceState(null, "", url); }
-    getSession().then((sessionUser) => { setUser(sessionUser); if (authError) setToast({ text: "Đăng nhập Google chưa thành công. Vui lòng thử lại.", tone: "error" }); if (sessionUser) { const userSaved = restoreProfile(sessionUser.id); if (userSaved) setProfile(userSaved); const completed = isProfileCompleted(sessionUser.id); setView(completed ? "workspace" : "onboarding"); } }).catch(() => setToast({ text: "Không thể kiểm tra phiên đăng nhập. Vui lòng tải lại trang.", tone: "error" })).finally(() => setCheckingSession(false));
-  }, [live]);
+    getSession().then((sessionUser) => {
+      setUser(sessionUser);
+      if (authError) openToast("Đăng nhập Google chưa thành công. Vui lòng thử lại.", "error");
+      if (sessionUser) {
+        const userSaved = restoreProfile(sessionUser.id); if (userSaved) setProfile(userSaved);
+        setView(isProfileCompleted(sessionUser.id) ? "workspace" : "onboarding");
+      }
+    }).catch(() => openToast("Không thể kiểm tra phiên đăng nhập. Vui lòng tải lại trang.", "error")).finally(() => setCheckingSession(false));
+  }, [openToast]);
   // Keep only selections the loaded catalog can show: the user must see (and be able to remove) every ingredient that is sent.
-  useEffect(() => { getIngredients(new Date().getMonth() + 1, profile.hometown).then((items) => { setCatalog(items); setSelectedIds((ids) => ids.filter((id) => items.some((item) => item.id === id))); }).catch(() => undefined); }, [profile.hometown]);
-  const selected = catalog.filter((ingredient) => selectedIds.includes(ingredient.id)); const openToast = (text: string, tone: "success" | "error" = "success") => { setToast({ text, tone }); window.setTimeout(() => setToast(null), 4200); };
-
-  const chat = useChat({ profile, selectedIds, live });
   useEffect(() => {
-    if (chat.threadReportId) {
-      fetchReport(chat.threadReportId).then((loadedReport) => {
-        if (loadedReport) {
-          setSessionReports((prev) => (prev.some((r) => r.id === loadedReport.id) ? prev : [loadedReport, ...prev]));
-          dispatchGeneration({ type: "RESOLVE", report: loadedReport });
-        }
-      }).catch(() => undefined);
-    }
-  }, [chat.threadReportId]);
-  const handleSelectThread = async (tId: string) => {
-    dispatchGeneration({ type: "RESET" });
-    setSessionReports([]);
-    setActiveReportId(null);
-    await chat.selectThread(tId);
-    setView("workspace");
+    let cancelled = false;
+    getIngredients(new Date().getMonth() + 1, profile.hometown)
+      .then((items) => { if (cancelled) return; setCatalog(items); setSelectedIds((ids) => ids.filter((id) => items.some((item) => item.id === id))); setCatalogStatus("ready"); })
+      .catch(() => { if (!cancelled) setCatalogStatus("error"); });
+    return () => { cancelled = true; };
+  }, [profile.hometown, catalogAttempt]);
+  const retryCatalog = () => { setCatalogStatus("loading"); setCatalogAttempt((attempt) => attempt + 1); };
+
+  const chat = useChat({ profile, selectedIds, enabled: Boolean(user) });
+  useEffect(() => {
+    if (!chat.threadReportId) return;
+    fetchReport(chat.threadReportId).then((loadedReport) => {
+      if (!loadedReport) return;
+      setSessionReports((prev) => (prev.some((r) => r.id === loadedReport.id) ? prev : [loadedReport, ...prev]));
+      dispatchGeneration({ type: "RESOLVE", report: loadedReport });
+    }).catch(() => openToast("Không tải được báo cáo của phiên chat này. Vui lòng thử lại.", "error"));
+  }, [chat.threadReportId, openToast]);
+
+  const go = (next: View) => { setView(next); setMenuOpen(false); setContextOpen(false); };
+  const resetGeneration = () => { dispatchGeneration({ type: "RESET" }); setSessionReports([]); setActiveReportId(null); };
+  const handleSelectThread = async (threadId: string) => { resetGeneration(); await chat.selectThread(threadId); go("workspace"); };
+  const handleNewSession = async () => { resetGeneration(); await chat.newThread(); go("workspace"); };
+  const handleDeleteThread = async (threadId: string) => {
+    try { await chat.removeThread(threadId); openToast("Đã xóa phiên chat."); }
+    catch (error) { openToast(error instanceof Error ? error.message : "Không xóa được phiên chat.", "error"); }
   };
-  const handleNewSession = async () => {
-    dispatchGeneration({ type: "RESET" });
-    setSessionReports([]);
-    setActiveReportId(null);
-    await chat.newThread();
-    setView("workspace");
-  };
-  const copyText = (text: string) => { navigator.clipboard?.writeText(text).then(() => openToast("Đã sao chép câu trả lời.")).catch(() => openToast("Không sao chép được, hãy chọn và sao chép thủ công.", "error")); };
-  // Agent actions are proposals: nothing runs until the user clicks, and a report only uses ingredients the picker shows.
-  const handleChatAction = (action: ChatAction) => { if (action.type === "prompt") { void chat.send(action.prompt); return; } if (action.type === "open_picker") { setShowPicker(true); return; } const ids = action.ingredient_ids.filter((id) => catalog.some((item) => item.id === id)); if (!ids.length) { openToast("Các nguyên liệu này chưa có trong danh mục để tạo report.", "error"); setShowPicker(true); return; } setSelectedIds(ids); openToast("Đang bắt đầu tạo công thức và báo cáo PDF…", "success"); void begin(action.prompt, ids); };
+  const copyText = (text: string) => { navigator.clipboard?.writeText(text).then(() => openToast("Đã sao chép.")).catch(() => openToast("Không sao chép được, hãy chọn và sao chép thủ công.", "error")); };
+
   const acceptOutcome = (outcome: Awaited<ReturnType<typeof generateReport>>) => {
     if (outcome.kind === "report") {
       dispatchGeneration({ type: "RESOLVE", report: outcome.report });
       setSessionReports((prev) => [...prev.filter((r) => r.id !== outcome.report.id), outcome.report]);
       setActiveReportId(outcome.report.id);
       void chat.linkReport(outcome.report.id);
-      openToast("Báo cáo và công thức sinh tố đã hoàn tất!", "success");
-      setTimeout(() => { reportSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }); }, 120);
+      openToast("Báo cáo và công thức sinh tố đã hoàn tất!");
     } else {
       dispatchGeneration({ type: "WAIT_CONFIRMATION", pending: outcome.pending });
-      setTimeout(() => { reportSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }); }, 120);
+    }
+    scrollToReport();
+  };
+  const runWorkflow = async (work: (signal: AbortSignal) => ReturnType<typeof generateReport>, fallback: string) => {
+    dispatchGeneration({ type: "START" });
+    scrollToReport();
+    const controller = new AbortController();
+    abortRef.current = controller;
+    try {
+      acceptOutcome(await work(controller.signal));
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") return;
+      const message = error instanceof Error ? error.message : fallback;
+      dispatchGeneration({ type: "FAIL", message });
+      openToast(message, "error");
+    } finally {
+      abortRef.current = null;
     }
   };
+  const onStep = (step: number) => dispatchGeneration({ type: "STEP", step });
   const begin = async (prompt = "", ids?: string[]) => {
     const chosen = ids ?? selectedIds;
-    if (bmi(profile) < BMI_SCOPE_MIN) { dispatchGeneration({ type: "BLOCK", message: "Hồ sơ chưa thuộc phạm vi thử nghiệm." }); return; }
+    if (!inScope(profile)) { dispatchGeneration({ type: "BLOCK", message: "Hồ sơ chưa thuộc phạm vi thử nghiệm." }); openToast("Hồ sơ hiện ngoài phạm vi thử nghiệm (BMI ≥ 23).", "error"); return; }
     if (!chosen.some((id) => catalog.find((item) => item.id === id)?.kind === "fruit")) { setShowPicker(true); openToast("Chọn ít nhất một loại trái cây trước khi tạo.", "error"); return; }
     const parsed = generationInputSchema.safeParse({ profile, ingredientIds: chosen, prompt: prompt || undefined });
     if (!parsed.success) { openToast(parsed.error.issues[0]?.message ?? "Yêu cầu chưa hợp lệ.", "error"); return; }
-    dispatchGeneration({ type: "START" });
-    setTimeout(() => { reportSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }); }, 120);
-    const controller = new AbortController();
-    abortRef.current = controller;
-    try {
-      acceptOutcome(await generateReport(parsed.data, (step) => dispatchGeneration({ type: "STEP", step }), controller.signal));
-    } catch (error) {
-      if (error instanceof DOMException && error.name === "AbortError") return;
-      const message = error instanceof Error ? error.message : "Không thể tạo report.";
-      dispatchGeneration({ type: "FAIL", message });
-      openToast(message, "error");
-    } finally {
-      abortRef.current = null;
-    }
+    setContextOpen(false);
+    await runWorkflow((signal) => generateReport(parsed.data, onStep, signal), "Không thể tạo báo cáo.");
   };
   const confirmSuggestions = async (ids: string[]) => {
     const pending = generation.pendingConfirmation;
-    if (!pending) return;
-    dispatchGeneration({ type: "START" });
-    setTimeout(() => { reportSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }); }, 120);
-    const controller = new AbortController();
-    abortRef.current = controller;
-    try {
-      acceptOutcome(await confirmReport(pending, ids, (step) => dispatchGeneration({ type: "STEP", step }), controller.signal));
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Không thể xác nhận đề xuất.";
-      dispatchGeneration({ type: "FAIL", message });
-      openToast(message, "error");
-    } finally {
-      abortRef.current = null;
-    }
+    if (pending) await runWorkflow((signal) => confirmReport(pending, ids, onStep, signal), "Không thể xác nhận đề xuất.");
   };
-  const cancelConfirmation = async () => { const pending = generation.pendingConfirmation; if (!pending) return; try { await cancelPendingReport(pending.reportId); dispatchGeneration({ type: "STOP" }); openToast("Đã hủy đề xuất đang chờ xác nhận."); } catch (error) { openToast(error instanceof Error ? error.message : "Không thể hủy đề xuất.", "error"); } };
-  const newRecipe = () => { handleNewSession(); };
-  const signOut = async () => { abortRef.current?.abort(); try { await logout(); } finally { setUser(null); dispatchGeneration({ type: "RESET" }); setMenu(false); setView("signin"); openToast("Bạn đã đăng xuất."); } };
-  const savedReports = report?.saved ? [report] : [];
-  if (view === "signin") return <><SignIn continueDemo={() => setView(isProfileCompleted() ? "workspace" : "onboarding")} reference={() => setView("reference")} live={live} checking={checkingSession} /><ToastMessage toast={toast} close={() => setToast(null)} /></>;
-  if (view === "reference") return <ReferenceScreen back={() => setView("signin")} />;
-  if (view === "onboarding" || view === "profile") return <><ProfileForm profile={profile} save={(next) => { setProfile(next); persistProfile(next, user?.id); markProfileCompleted(user?.id); setView("workspace"); openToast("Hồ sơ sức khỏe đã được lưu."); }} cancel={() => setView("workspace")} /><ToastMessage toast={toast} close={() => setToast(null)} /></>;
-  const title = view === "history" ? "Lịch sử công thức" : view === "saved" ? "Công thức đã lưu" : "AI dinh dưỡng – Tạo PDF 2 trang";
-  return <main className="h-screen max-h-screen w-full overflow-hidden bg-[var(--cream)] p-0 xl:p-4"><div className="flex h-full w-full min-h-0 gap-4 overflow-hidden"><Sidebar view={view} setView={setView} newRecipe={newRecipe} openToast={openToast} user={user} onLogout={signOut} threads={chat.threads} activeThreadId={chat.threadId} onSelectThread={handleSelectThread} onNewThread={handleNewSession} onDeleteThread={chat.removeThread} />{menu && <div className="fixed inset-0 z-30 bg-[#2b1a0a]/35 xl:hidden" onClick={() => setMenu(false)}><div className="h-full w-72 bg-white p-5" onClick={(event) => event.stopPropagation()}><Sidebar view={view} setView={(next) => { setView(next); setMenu(false); }} newRecipe={() => { newRecipe(); setMenu(false); }} openToast={openToast} user={user} onLogout={signOut} threads={chat.threads} activeThreadId={chat.threadId} onSelectThread={handleSelectThread} onNewThread={handleNewSession} onDeleteThread={chat.removeThread} /></div></div>}<section className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-white xl:rounded-2xl xl:border xl:border-[var(--border)] xl:shadow-card"><Topbar title={title} onMenu={() => setMenu(true)} openToast={openToast} user={user}/><div ref={workspaceScrollRef} className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto p-4 sm:p-6 xl:flex-row xl:items-start">{view === "history" || view === "saved" ? <section className="min-w-0 flex-1"><div className="soft-card p-6"><h2 className="text-xl font-semibold">{view === "history" ? "Các lần tạo gần đây" : "Công thức bạn đã lưu"}</h2>{(view === "saved" ? savedReports : report ? [report] : []).length ? <div className="mt-5 space-y-3">{(view === "saved" ? savedReports : [report!]).map((entry) => <button key={entry.id} onClick={() => { dispatchGeneration({ type: "RESOLVE", report: entry }); setView("workspace"); }} className="flex w-full items-center justify-between rounded-xl border border-[var(--border)] p-4 text-left hover:bg-[var(--orange-soft)]"><span><strong className="block">{entry.name}</strong><small className="text-[var(--muted)]">{entry.createdAt} · Phiên bản {entry.version}</small></span><span>→</span></button>)}</div> : <p className="mt-4 leading-6 text-[var(--muted)]">Chưa có công thức ở đây. Tạo một công thức rồi lưu lại để xem sau.</p>}</div></section> : <section className="flex min-w-0 flex-1 flex-col"><div className="sticky top-0 z-10 mb-4 flex items-center justify-between rounded-xl border border-[var(--border)] bg-[#fffaf5]/95 px-4 py-2.5 shadow-sm backdrop-blur-sm"><div className="flex min-w-0 items-center gap-2"><span className="text-base">💬</span><span className="truncate text-sm font-semibold text-[var(--ink)]">{chat.threadTitle || "Cuộc trò chuyện mới"}</span>{chat.threadId && <span className="hidden rounded-md border border-[var(--border)] bg-white px-2 py-0.5 text-[10px] text-[var(--muted)] sm:inline-block">{chat.messages.length} tin nhắn</span>}{sessionReports.length > 0 && <span className="rounded-md border border-[#fdba74] bg-[var(--orange-soft)] px-2 py-0.5 text-[10px] font-semibold text-[var(--brand)]">🍹 {sessionReports.length} công thức</span>}</div><button onClick={handleNewSession} className="btn-secondary min-h-8 px-2.5 py-1 text-xs" title="Tạo phiên chat mới">＋ Đoạn chat mới</button></div><div className="flex-1 space-y-6 pb-4">{chat.messages.length === 0 && !currentReport && status !== "generating" ? <EmptyWorkspace selectIngredients={() => setShowPicker(true)} start={() => begin()} blocked={bmi(profile) < BMI_SCOPE_MIN} /> : <>{chat.messages.length > 0 && <ChatThread messages={chat.messages} onAction={handleChatAction} onRetry={(prompt) => void chat.send(prompt)} onCopy={copyText} onReset={chat.reset} busy={chat.streaming || status === "generating"} />}{status === "generating" && <div ref={reportSectionRef} className="rounded-2xl border-2 border-[var(--brand)] bg-[#fffaf5] p-5 shadow-card"><Processing current={progress} /><button className="btn-secondary mt-5" onClick={() => { abortRef.current?.abort(); dispatchGeneration({ type: "STOP" }); openToast("Đã gửi yêu cầu dừng workflow."); }}>Dừng tạo</button></div>}{status === "awaiting_confirmation" && generation.pendingConfirmation && <div ref={reportSectionRef}><ConfirmationPanel pending={generation.pendingConfirmation} catalog={catalog} confirm={confirmSuggestions} cancel={cancelConfirmation} /></div>}{(status === "error" || status === "stopped") && <div className="rounded-2xl border border-[#fecdd3] bg-[var(--coral-soft)] p-6"><h2 className="text-xl font-semibold">{status === "stopped" ? "Bạn đã dừng yêu cầu" : "Không thể tạo công thức"}</h2>{status === "error" && generation.message && <p className="mt-3 rounded-xl border border-[#fecdd3] bg-white p-3 text-sm font-semibold text-[var(--coral)]" role="alert">{generation.message}</p>}<p className="mt-2 text-[var(--muted)]">Thông tin đã nhập vẫn được giữ. Bạn có thể thử lại hoặc chỉnh lựa chọn.</p><div className="mt-5 flex gap-3"><button className="btn-primary" onClick={() => begin()}>Thử lại</button><button className="btn-secondary" onClick={() => setShowPicker(true)}>Chỉnh nguyên liệu</button></div></div>}{currentReport && <div ref={reportSectionRef} className="space-y-4 pt-2">{sessionReports.length > 1 && <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#fdba74] bg-[#fffaf5] p-3 shadow-sm"><div className="flex flex-wrap items-center gap-2"><span className="text-xs font-semibold text-[var(--action)]">🍹 Các công thức đã tạo trong phiên này ({sessionReports.length}):</span><div className="flex flex-wrap gap-1.5">{sessionReports.map((r, idx) => <button key={r.id} onClick={() => { setActiveReportId(r.id); dispatchGeneration({ type: "RESOLVE", report: r }); }} className={`rounded-lg px-2.5 py-1 text-xs transition ${currentReport.id === r.id ? "bg-[var(--brand)] font-semibold text-white shadow-sm" : "border border-[var(--border)] bg-white text-[var(--ink)] hover:bg-[#fff7ed]"}`}>#{idx + 1} {r.name}</button>)}</div></div></div>}<div className="space-y-2"><div className="flex items-center gap-2 text-sm font-semibold text-[var(--action)]"><span>🍹 Công thức sinh tố #{sessionReports.findIndex((r) => r.id === currentReport.id) + 1 || 1}: {currentReport.name}</span></div><ReportView report={currentReport} toggleSaved={() => { const updated = { ...currentReport, saved: !currentReport.saved }; setSessionReports((list) => list.map((item) => (item.id === currentReport.id ? updated : item))); dispatchGeneration({ type: "RESOLVE", report: updated }); openToast(updated.saved ? "Đã lưu công thức vào thư viện." : "Đã bỏ lưu công thức."); }} openToast={openToast} /></div></div>}</>}</div><div className="sticky bottom-0 z-20 mt-auto bg-gradient-to-t from-white via-white/95 to-transparent pt-2 pb-1">{status !== "generating" && status !== "awaiting_confirmation" && <PromptBox onSubmit={(text) => void chat.send(text)} disabled={false} busy={chat.streaming} onStop={chat.stop} openToast={openToast} />}</div></section>}<ContextPanel profile={profile} selected={selected} setView={setView} report={currentReport} openSelector={() => setShowPicker(true)} createReport={() => void begin()} busy={status === "generating" || chat.streaming} /></div></section></div>{showPicker && <IngredientPicker catalog={catalog} selectedIds={selectedIds} setSelectedIds={setSelectedIds} close={() => setShowPicker(false)} />}<ToastMessage toast={toast} close={() => setToast(null)} /></main>;
+  const cancelConfirmation = async () => {
+    const pending = generation.pendingConfirmation; if (!pending) return;
+    try { await cancelPendingReport(pending.reportId); dispatchGeneration({ type: "STOP" }); openToast("Đã hủy đề xuất đang chờ xác nhận."); }
+    catch (error) { openToast(error instanceof Error ? error.message : "Không thể hủy đề xuất.", "error"); }
+  };
+  const stopGeneration = () => { abortRef.current?.abort(); dispatchGeneration({ type: "STOP" }); openToast("Đã dừng tạo báo cáo."); };
+  // Agent actions are proposals: nothing runs until the user clicks, and a report only uses ingredients the picker shows.
+  const handleChatAction = (action: ChatAction) => {
+    if (action.type === "prompt") { void chat.send(action.prompt); return; }
+    if (action.type === "open_picker") { setShowPicker(true); return; }
+    const ids = action.ingredient_ids.filter((id) => catalog.some((item) => item.id === id));
+    if (!ids.length) { openToast("Các nguyên liệu này chưa có trong danh mục để tạo báo cáo.", "error"); setShowPicker(true); return; }
+    setSelectedIds(ids);
+    void begin(action.prompt, ids);
+  };
+  const toggleSaved = (target: Report) => {
+    const updated = { ...target, saved: !target.saved };
+    setSessionReports((list) => list.some((item) => item.id === target.id) ? list.map((item) => (item.id === target.id ? updated : item)) : [...list, updated]);
+    dispatchGeneration({ type: "RESOLVE", report: updated });
+    openToast(updated.saved ? "Đã lưu công thức vào thư viện." : "Đã bỏ lưu công thức.");
+  };
+  const openReport = (entry: Report) => { setActiveReportId(entry.id); dispatchGeneration({ type: "RESOLVE", report: entry }); go("workspace"); };
+  const signOut = async () => {
+    abortRef.current?.abort();
+    try { await logout(); }
+    catch (error) { openToast(error instanceof Error ? error.message : "Không thể đăng xuất. Vui lòng thử lại.", "error"); return; }
+    setUser(null); resetGeneration(); go("signin"); openToast("Bạn đã đăng xuất.");
+  };
+  const saveProfile = (next: Profile) => { setProfile(next); persistProfile(next, user?.id); markProfileCompleted(user?.id); go("workspace"); openToast("Hồ sơ sức khỏe đã được lưu."); };
+
+  const toastNode = <ToastMessage toast={toast} close={() => setToast(null)} />;
+  if (view === "signin") return <><SignIn checking={checkingSession} />{toastNode}</>;
+
+  const reports = sessionReports.length ? sessionReports : report ? [report] : [];
+  const busy = status === "generating" || chat.streaming;
+  const showContext = view === "workspace" || view === "history" || view === "saved";
+  const reportIndex = currentReport ? sessionReports.findIndex((r) => r.id === currentReport.id) + 1 || 1 : 0;
+  const sidebarProps = {
+    view, setView: go, onNewThread: () => void handleNewSession(), user, onLogout: () => void signOut(),
+    threads: chat.threads, activeThreadId: chat.threadId, onSelectThread: (id: string) => void handleSelectThread(id), onDeleteThread: (id: string) => void handleDeleteThread(id),
+  };
+  const contextProps = { profile, selected, openSelector: () => setShowPicker(true), createReport: () => void begin(), busy };
+
+  const workspace = (
+    <section className="flex min-h-full min-w-0 flex-1 flex-col">
+      <div className="flex-1 space-y-6 pb-4">
+        {chat.messages.length === 0 && !currentReport && status === "idle"
+          ? <EmptyWorkspace selectIngredients={() => setShowPicker(true)} start={() => void begin()} blocked={!inScope(profile)} />
+          : <>
+            {chat.messages.length > 0 && <ChatThread messages={chat.messages} onAction={handleChatAction} onRetry={(prompt) => void chat.send(prompt)} onCopy={copyText} busy={busy} />}
+            {status === "generating" && <div ref={reportSectionRef}><Processing current={generation.activeStep} hometown={profile.hometown} onStop={stopGeneration} /></div>}
+            {status === "awaiting_confirmation" && generation.pendingConfirmation && <div ref={reportSectionRef}><ConfirmationPanel pending={generation.pendingConfirmation} catalog={catalog} confirm={(ids) => void confirmSuggestions(ids)} cancel={() => void cancelConfirmation()} /></div>}
+            {(status === "error" || status === "stopped" || status === "blocked") && (
+              <div className="rounded-card border border-coral-line bg-coral-soft p-5 sm:p-6">
+                <h2 className="text-xl font-semibold text-strong">{status === "stopped" ? "Bạn đã dừng yêu cầu" : status === "blocked" ? "Chưa thể tạo công thức" : "Không thể tạo công thức"}</h2>
+                {generation.message && status !== "stopped" && <p className="mt-3 rounded-xl border border-coral-line bg-card p-3 text-sm font-semibold text-coral-strong" role="alert">{generation.message}</p>}
+                <p className="mt-2 text-muted">{status === "blocked" ? "Cập nhật hồ sơ sức khỏe nếu thông tin chưa đúng." : "Thông tin đã nhập vẫn được giữ. Bạn có thể thử lại hoặc chỉnh lựa chọn."}</p>
+                <div className="mt-5 flex flex-wrap gap-3">
+                  {status === "blocked"
+                    ? <Button variant="primary" onClick={() => go("profile")}>Cập nhật hồ sơ</Button>
+                    : <Button variant="primary" onClick={() => void begin()}><Icon name="refresh" className="size-4" />Thử lại</Button>}
+                  <Button onClick={() => setShowPicker(true)}>Chỉnh nguyên liệu</Button>
+                </div>
+              </div>
+            )}
+            {currentReport && (
+              <div ref={reportSectionRef} className="space-y-3 pt-2">
+                {sessionReports.length > 1 && (
+                  <div className="rounded-xl border border-peach bg-warm p-3">
+                    <p className="mb-2 text-xs font-semibold text-action">Các công thức đã tạo trong phiên này ({sessionReports.length})</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {sessionReports.map((r, index) => (
+                        <button key={r.id} onClick={() => openReport(r)} aria-pressed={currentReport.id === r.id}
+                          className={`rounded-lg px-2.5 py-1 text-sm transition ${currentReport.id === r.id ? "bg-action font-semibold text-white" : "border border-line bg-card text-ink hover:bg-orange-soft"}`}>#{index + 1} {r.name}</button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                <p className="text-sm font-semibold text-action">Công thức sinh tố #{reportIndex}</p>
+                <ReportView report={currentReport} hometown={profile.hometown} onToggleSaved={() => toggleSaved(currentReport)} onCopy={copyText} />
+              </div>
+            )}
+          </>}
+      </div>
+      {status !== "generating" && status !== "awaiting_confirmation" && (
+        <div className="sticky bottom-0 z-20 mt-auto bg-gradient-to-t from-card via-card/95 to-transparent pt-3">
+          <PromptBox onSubmit={(text) => void chat.send(text)} busy={chat.streaming} onStop={chat.stop} showSuggestions={chat.messages.length === 0 && !currentReport} />
+        </div>
+      )}
+    </section>
+  );
+
+  const content = view === "onboarding" || view === "profile"
+    ? <div className="min-w-0 flex-1"><ProfileForm key={view} profile={profile} catalog={catalog} catalogStatus={catalogStatus} onRetryCatalog={retryCatalog} save={saveProfile} cancel={() => go("workspace")} onboarding={view === "onboarding"} /></div>
+    : view === "history" ? <LibraryView kind="history" reports={[...reports].reverse()} onOpen={openReport} onStart={() => go("workspace")} />
+      : view === "saved" ? <LibraryView kind="saved" reports={reports.filter((entry) => entry.saved)} onOpen={openReport} onStart={() => go("workspace")} />
+        : workspace;
+
+  return (
+    <main className="h-dvh w-full overflow-hidden bg-cream xl:p-4">
+      <div className="flex h-full min-h-0 gap-4">
+        <Sidebar {...sidebarProps} />
+        <section className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-card xl:rounded-panel xl:border xl:border-line xl:shadow-card">
+          <Topbar title={TITLES[view]} onMenu={() => setMenuOpen(true)} onContext={showContext ? () => setContextOpen(true) : undefined} user={user} onOpenProfile={() => go("profile")} onLogout={() => void signOut()} />
+          <div className="flex min-h-0 flex-1 gap-6 overflow-y-auto p-4 sm:p-6 lg:items-start">
+            {content}
+            {showContext && <ContextPanel {...contextProps} />}
+          </div>
+        </section>
+      </div>
+      <Modal open={menuOpen} onClose={() => setMenuOpen(false)} placement="left" label="Điều hướng" panelClassName="p-5"><SidebarContent {...sidebarProps} /></Modal>
+      <Modal open={contextOpen && showContext} onClose={() => setContextOpen(false)} placement="right" labelledBy="context-drawer-title">
+        <ContextPanelHeader titleId="context-drawer-title" trailing={<Button variant="ghost" icon size="sm" onClick={() => setContextOpen(false)} aria-label="Đóng"><Icon name="close" className="size-4" /></Button>} />
+        <div className="p-4"><ContextPanelBody {...contextProps} /></div>
+      </Modal>
+      <IngredientPicker open={showPicker} catalog={catalog} status={catalogStatus} onRetry={retryCatalog} selectedIds={selectedIds} setSelectedIds={setSelectedIds} close={() => setShowPicker(false)} />
+      {toastNode}
+    </main>
+  );
 }

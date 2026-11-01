@@ -46,7 +46,8 @@ function writeThread(threadId: string | null): void {
 
 const newId = () => (typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : String(Date.now() + Math.random()));
 
-export function useChat({ profile, selectedIds, live }: { profile: Profile; selectedIds: string[]; live: boolean }) {
+/** `enabled` once a user is signed in: threads live on the backend per account. */
+export function useChat({ profile, selectedIds, enabled }: { profile: Profile; selectedIds: string[]; enabled: boolean }) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [threadId, setThreadId] = useState<string | null>(null);
   const [threadTitle, setThreadTitle] = useState<string | null>(null);
@@ -56,16 +57,16 @@ export function useChat({ profile, selectedIds, live }: { profile: Profile; sele
   const streaming = messages.some((message) => message.state === "streaming");
 
   const refreshThreads = useCallback(async () => {
-    if (!live) return;
+    if (!enabled) return;
     try {
       const list = await listThreads();
       setThreads(list);
     } catch { /* ignore */ }
-  }, [live]);
+  }, [enabled]);
 
   // Initial load: fetch thread list and restore active thread from sessionStorage
   useEffect(() => {
-    if (!live) return;
+    if (!enabled) return;
     void refreshThreads();
     const saved = readThread();
     if (!saved) return;
@@ -80,7 +81,7 @@ export function useChat({ profile, selectedIds, live }: { profile: Profile; sele
         dataSource: message.metadata.data_source, datasetVersion: message.metadata.dataset_version,
       })));
     }).catch(() => undefined);
-  }, [live, refreshThreads]);
+  }, [enabled, refreshThreads]);
 
   const selectThread = useCallback(async (targetThreadId: string) => {
     if (abortRef.current) abortRef.current.abort();
@@ -104,7 +105,7 @@ export function useChat({ profile, selectedIds, live }: { profile: Profile; sele
     if (abortRef.current) abortRef.current.abort();
     setMessages([]);
     setThreadReportId(null);
-    if (live) {
+    if (enabled) {
       const created = await apiCreateThread(initialTitle);
       if (created) {
         setThreadId(created.thread_id);
@@ -118,7 +119,7 @@ export function useChat({ profile, selectedIds, live }: { profile: Profile; sele
     setThreadTitle(initialTitle);
     writeThread(null);
     return null;
-  }, [live, refreshThreads]);
+  }, [enabled, refreshThreads]);
 
   const removeThread = useCallback(async (targetThreadId: string) => {
     await apiDeleteThread(targetThreadId);
@@ -139,12 +140,12 @@ export function useChat({ profile, selectedIds, live }: { profile: Profile; sele
   }, [threadId, refreshThreads]);
 
   const linkReport = useCallback(async (reportId: string) => {
-    if (threadId && live) {
+    if (threadId && enabled) {
       await attachReportToThread(threadId, reportId);
       setThreadReportId(reportId);
       await refreshThreads();
     }
-  }, [threadId, live, refreshThreads]);
+  }, [threadId, enabled, refreshThreads]);
 
   const update = (id: string, change: (message: ChatMessage) => ChatMessage) =>
     setMessages((all) => all.map((message) => (message.id === id ? change(message) : message)));

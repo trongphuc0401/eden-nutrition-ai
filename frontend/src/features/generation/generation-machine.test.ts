@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { generationReducer, initialGenerationState } from "./generation-machine";
-import { demoReport } from "@/lib/demo-data";
+import { reportFixture as demoReport } from "@/test/fixtures";
 
 describe("generationReducer", () => {
   it("moves through a successful run and preserves its report", () => {

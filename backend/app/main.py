@@ -26,7 +26,7 @@ from app.schemas.frontend_schema import FrontendGenerationRequest
 from app.schemas.smoothie_schema import SmoothiePlanResponse
 from app.services.evaluation_service import EvaluationService
 from app.services.demo_service import build_frontend_bootstrap
-from app.services.frontend_service import build_ingredient_catalog, create_frontend_report
+from app.services.frontend_service import build_allergen_options, build_ingredient_catalog, create_frontend_report
 from app.services.nutrition_service import (
     GuardrailViolationError,
     NutritionService,
@@ -207,6 +207,12 @@ def list_frontend_ingredients(
 ) -> dict:
     """Read-only ingredient catalog for the Next.js selector; `hometown` picks the climate zone for seasonality."""
     return {"month": month or None, "items": build_ingredient_catalog(month or None, hometown)}
+
+
+@app.get("/v1/reference/allergens")
+def list_allergen_options() -> dict:
+    """Read-only allergy list for the profile form, from the health_conditions reference data."""
+    return {"items": build_allergen_options()}
 
 
 @app.post("/v1/generations", deprecated=True, dependencies=[Depends(require_user)])

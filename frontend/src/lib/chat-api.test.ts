@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { defaultProfile } from "./demo-data";
+import { profileFixture as defaultProfile } from "@/test/fixtures";
 
 function sseResponse(chunks: string[]): Response {
   const encoder = new TextEncoder();
@@ -16,7 +16,6 @@ describe("streamChat", () => {
   afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs(); vi.resetModules(); });
 
   it("parses events split across network chunks, in order", async () => {
-    vi.stubEnv("NEXT_PUBLIC_APP_MODE", "live");
     const events = 'event: thread\ndata: {"thread_id":"t1"}\n\nevent: status\ndata: {"step":"x","text":"Đang tra dữ liệu dinh dưỡng Cam…"}\n\n'
       + 'event: delta\ndata: {"text":"Cam "}\n\nevent: delta\ndata: {"text":"38 kcal"}\n\nevent: done\ndata: {"message_id":2,"intent":"nutrition_question","thread_id":"t1"}\n\n';
     const cut = [events.slice(0, 17), events.slice(17, 90), events.slice(90, 151), events.slice(151)];
@@ -37,7 +36,6 @@ describe("streamChat", () => {
   });
 
   it("explains an expired session instead of failing silently", async () => {
-    vi.stubEnv("NEXT_PUBLIC_APP_MODE", "live");
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("{}", { status: 401 })));
     const { streamChat } = await import("./chat-api");
     await expect(streamChat({ message: "x", threadId: null, profile: defaultProfile, selectedIds: [] }, () => undefined))
