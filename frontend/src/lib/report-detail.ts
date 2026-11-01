@@ -113,7 +113,7 @@ function buildNutrients(document: DocumentDetail): NutrientRow[] {
     const threshold = thresholds.get(key);
     const min = range?.minimum ?? threshold?.minimum ?? null;
     const max = range?.maximum ?? threshold?.maximum ?? null;
-    const basis = range?.basis ?? (threshold ? "Ngưỡng nghiên cứu cho bữa phụ" : null);
+    const basis = range?.basis ?? (threshold ? "Mức khuyến nghị cho bữa phụ" : null);
     return { key, label, unit, value, min, max, status: rangeStatus(value, min, max), basis };
   });
 }

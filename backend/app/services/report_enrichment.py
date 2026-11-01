@@ -26,6 +26,7 @@ STEP_KINDS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
     ("pour", "Rót ra ly", ("rót", "đổ ra", "chia đều", "chia đúng", "chia ra", "chia vào", "dùng ngay")),
 )
 
+_BLENDS = re.compile(r"(?<!máy )xay\s+(?:nhuyễn|mịn|đều|trong|khoảng|\d)")
 _DURATION = re.compile(r"(\d+(?:[.,]\d+)?)(?:\s*[–-]\s*(\d+(?:[.,]\d+)?))?\s*(phút|giây)", re.IGNORECASE)
 
 
@@ -107,16 +108,16 @@ def personal_fit_score(
     breakdown: list[dict[str, Any]] = []
     for item in thresholds:
         if item["status"] == "review":
-            breakdown.append({"label": f"{item['nutrient']} ngoài ngưỡng", "points": -15})
+            breakdown.append({"label": f"{item['nutrient']} chưa đạt mức khuyến nghị", "points": -15})
         elif item["status"] == "unknown":
-            breakdown.append({"label": f"{item['nutrient']} thiếu dữ liệu", "points": -5})
+            breakdown.append({"label": f"{item['nutrient']} chưa có số liệu", "points": -5})
     if conflicts:
         breakdown.append({"label": "Xung đột dị ứng", "points": -40 * conflicts})
     if plan and calories is not None and not plan["smoothie_kcal_min"] <= calories <= plan["smoothie_kcal_max"]:
         breakdown.append({"label": "Năng lượng ngoài mục tiêu cá nhân", "points": -10})
     gap = round((1 - coverage) * 20)
     if gap:
-        breakdown.append({"label": "Độ phủ dữ liệu chưa đủ", "points": -gap})
+        breakdown.append({"label": "Thiếu số liệu dinh dưỡng của một vài nguyên liệu", "points": -gap})
     value = max(0, min(100, 100 + sum(row["points"] for row in breakdown)))
     return {"value": value, "breakdown": breakdown}
 
@@ -128,7 +129,7 @@ def reference_ranges(totals: dict[str, float | None], plan: dict[str, Any] | Non
         ranges.append({
             "nutrient": "calories", "unit": "kcal",
             "minimum": plan["smoothie_kcal_min"], "maximum": plan["smoothie_kcal_max"],
-            "basis": "Mục tiêu cá nhân: 10–15% năng lượng ngày (Mifflin-St Jeor, TDEE − 500 kcal)",
+            "basis": "Mức riêng cho bạn: 10–15% nhu cầu năng lượng cả ngày khi giảm cân",
         })
     calories = totals.get("calories")
     if calories:
@@ -137,7 +138,7 @@ def reference_ranges(totals: dict[str, float | None], plan: dict[str, Any] | Non
                 "nutrient": nutrient, "unit": "g",
                 "minimum": round(calories * low / kcal_per_g, 1),
                 "maximum": round(calories * high / kcal_per_g, 1),
-                "basis": f"{low * 100:.0f}–{high * 100:.0f}% năng lượng của ly (AMDR, IOM)",
+                "basis": f"Nên chiếm {low * 100:.0f}–{high * 100:.0f}% năng lượng của ly (khuyến nghị IOM/WHO)",
             })
     return ranges
 
@@ -176,7 +177,9 @@ def structured_steps(steps: list[str]) -> list[dict[str, Any]]:
             for word in words
             if (position := lower.find(word)) >= 0
         ]
-        if hits:
+        if _BLENDS.search(lower):  # "cho vào máy xay, xay nhuyễn" is a blending step, not an adding step
+            kind, title = "blend", "Xay nhuyễn"
+        elif hits:
             _, kind, title = min(hits)
         else:
             kind, title = "other", text.split(",")[0].split(";")[0].strip()[:40]

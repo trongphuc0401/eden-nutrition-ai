@@ -246,7 +246,7 @@ def _load_from_database() -> ReferenceSnapshot:
         report_thresholds.append({
             "code": row["threshold_code"],
             "nutrient": key,
-            "label": THRESHOLD_LABELS[key] + (" (% năng lượng)" if percent else ""),
+            "label": THRESHOLD_LABELS[key] + (" (% năng lượng của ly)" if percent else ""),
             "unit": "%" if percent else (row["unit"] or ""),
             "minimum": float(row["min_value"]) if row["min_value"] is not None else None,
             "maximum": float(row["max_value"]) if row["max_value"] is not None else None,

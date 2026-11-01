@@ -98,17 +98,24 @@ export function PrepSteps({ detail }: { detail: ReportDetail }) {
 /** Trust UI: data checks, missing data, assumptions and the medical disclaimer in one place. */
 export function TrustFooter({ detail, coverage }: { detail: ReportDetail; coverage?: number }) {
   const blocks: { title: string; items: string[]; tone: string }[] = [
-    { title: "Số liệu cần kiểm tra", items: detail.dataChecks, tone: "border-coral-line bg-coral-soft text-coral-strong" },
-    { title: "Dữ liệu còn thiếu", items: detail.missingData, tone: "border-yellow-line bg-yellow-soft text-yellow-text" },
-    { title: "Giả định khi tính", items: detail.assumptions, tone: "border-line bg-cream text-muted" },
+    { title: "Số liệu nên kiểm tra lại", items: detail.dataChecks, tone: "border-coral-line bg-coral-soft text-coral-strong" },
+    { title: "Còn thiếu", items: detail.missingData, tone: "border-yellow-line bg-yellow-soft text-yellow-text" },
+    { title: "Cách tính đã giả định", items: detail.assumptions, tone: "border-line bg-cream text-muted" },
   ].filter((block) => block.items.length);
   return (
     <div className="space-y-3">
       {coverage !== undefined && (
-        <div className="flex items-center gap-3 text-sm text-muted">
-          <span className="shrink-0">Độ phủ dữ liệu</span>
-          <span className="h-2 flex-1 overflow-hidden rounded-full bg-neutral-soft" aria-hidden><span className="block h-full rounded-full bg-green" style={{ width: `${Math.round(coverage * 100)}%` }} /></span>
-          <strong className="text-strong">{Math.round(coverage * 100)}%</strong>
+        <div>
+          <div className="flex items-center gap-3 text-sm text-muted">
+            <span className="shrink-0">Số liệu đã có</span>
+            <span className="h-2 flex-1 overflow-hidden rounded-full bg-neutral-soft" aria-hidden><span className="block h-full rounded-full bg-green" style={{ width: `${Math.round(coverage * 100)}%` }} /></span>
+            <strong className="text-strong">{Math.round(coverage * 100)}%</strong>
+          </div>
+          <p className="mt-1 text-xs text-muted">
+            {coverage >= 1
+              ? "Mọi nguyên liệu đều có đủ số liệu dinh dưỡng, nên các con số ở trên được tính đầy đủ."
+              : `Đã tìm được số liệu cho ${Math.round(coverage * 100)}% các chất cần tính của nguyên liệu. Phần còn thiếu chưa được cộng vào tổng, nên con số thực tế có thể cao hơn một chút.`}
+          </p>
         </div>
       )}
       {blocks.map((block) => (

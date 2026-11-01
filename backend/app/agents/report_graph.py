@@ -314,7 +314,7 @@ def safety_and_quality_gate(state: NutritionReportState) -> dict[str, Any]:
     if calculation["missing_data"]:
         warnings.extend(calculation["missing_data"])
     if decision == "review":
-        warnings.append("Một hoặc nhiều ngưỡng demo chưa đạt; report cần được xem xét trước khi sử dụng.")
+        warnings.append("Một vài chất dinh dưỡng chưa đạt mức khuyến nghị; nên xem lại công thức trước khi dùng.")
     if safety["review"]:
         decision = "review"
     errors = list(state.get("errors", []))
@@ -395,13 +395,12 @@ def _compose(state: NutritionReportState, force_warning: bool) -> dict[str, Any]
     details = (
         (plan_note + " " if plan_note else "")
         + "Công thức được tính theo mỗi khẩu phần từ định lượng và dữ liệu dinh dưỡng trên 100 g. "
-        f"Độ phủ dữ liệu hiện tại là {calculation['coverage'] * 100:.0f}%. "
+        f"Đã có số liệu cho {calculation['coverage'] * 100:.0f}% các chất cần tính của nguyên liệu. "
         + adjustment_note
-        + ("Có điểm cần xem lại trong phần ngưỡng và dữ liệu thiếu." if decision == "review" else "Các ngưỡng demo hiện tại đều đạt.")
+        + ("Có vài điểm nên xem lại, chi tiết ở trang phân tích." if decision == "review" else "Các chất dinh dưỡng đều đạt mức khuyến nghị.")
     )
     # the AI rationale is trimmed first so the calculated facts (and adjustment note) always fit in 650 chars
-    ai_summary = recipe.get("ai_summary") or ""
-    ai_summary = ai_summary[: max(650 - len(details) - 1, 0)].strip()
+    ai_summary = _trim_to_sentence(recipe.get("ai_summary") or "", 650 - len(details) - 1)
     summary = (ai_summary + " " if ai_summary else "") + details
     document = NutritionReportDocument(
         report_id=state["report_id"],
@@ -439,6 +438,24 @@ def _compose(state: NutritionReportState, force_warning: bool) -> dict[str, Any]
         },
     )
     return {"report_document": document.model_dump(mode="json"), "decision": decision}
+
+
+def _trim_to_sentence(text: str, limit: int) -> str:
+    """Cuts at the last full sentence that fits, so a number like "1.910 kcal" is never split mid-way."""
+    text = text.strip()
+    if limit <= 0:
+        return ""
+    if len(text) <= limit:
+        return text
+    cut = text[:limit]
+    end = max(cut.rfind(". "), cut.rfind("! "), cut.rfind("? "), cut.rfind("."))
+    # a "." followed by a digit is a thousands separator, not a sentence end
+    while end > 0 and end + 1 < len(text) and text[end + 1].isdigit():
+        end = max(cut.rfind(". ", 0, end), cut.rfind(".", 0, end))
+    if end > 0:
+        return text[: end + 1].strip()
+    space = cut.rfind(" ")
+    return (cut[:space] if space > 0 else cut).rstrip(" ,;:") + "…"
 
 
 def compose_report(state: NutritionReportState) -> dict[str, Any]:

@@ -93,7 +93,7 @@ def test_db_thresholds_support_percent_energy_and_strict_comparators(db_snapshot
     recipe = {"servings": 1, "ingredients": [{**index["oi"], "amount": 300.0, "unit": "g"}]}
     by_label = {row["nutrient"]: row for row in calculate_nutrition(recipe)["thresholds"]}
     assert by_label["Năng lượng"]["value"] == 150.0 and by_label["Năng lượng"]["status"] == "pass"
-    assert by_label["Năng lượng"]["message"] == "Đạt ngưỡng THR_ENG_001"
+    assert by_label["Năng lượng"]["message"] == "Đạt mức khuyến nghị"
     # 3 g protein * 4 kcal / 150 kcal = 8 % of energy -> below 11 %
     assert by_label["Protein (% năng lượng)"]["value"] == 8.0
     assert by_label["Protein (% năng lượng)"]["status"] == "review"

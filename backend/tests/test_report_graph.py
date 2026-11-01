@@ -71,7 +71,8 @@ class ReportGraphTests(unittest.TestCase):
         reader = PdfReader(pdf_path)
         self.assertEqual(len(reader.pages), 2)
         text = "\n".join(page.extract_text() or "" for page in reader.pages)
-        for heading in ("NGUYÊN LIỆU", "CÁCH CHẾ BIẾN", "Phân tích dinh dưỡng", "NGƯỠNG ĐÁNH GIÁ"):
+        for heading in ("Nguyên liệu & mùa vụ", "Quá trình thực hiện", "Điểm phù hợp cá nhân", "Phân tích cá nhân hóa",
+                        "Cân đối dinh dưỡng trên 1 ly", "Đối chiếu với mức khuyến nghị", "Số liệu đã có"):
             self.assertIn(heading, text)
         self.assertIn(initial["report_id"], text)
 

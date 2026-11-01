@@ -149,13 +149,17 @@ def calculate_nutrition(recipe: dict[str, Any], rules: list[dict[str, Any]] | No
         status = "pass" if passed else ("unknown" if value is None else "review")
         if status != "pass":
             needs_review = True
-        strict = rule.get("comparator") in ("gt", "lt")
-        expected = []
-        if minimum is not None and rule.get("comparator") not in ("lte", "lt"):
-            expected.append(f"{'>' if strict else '≥'} {minimum:g}")
-        if maximum is not None and rule.get("comparator") not in ("gte", "gt"):
-            expected.append(f"{'<' if strict else '≤'} {maximum:g}")
-        code = rule.get("code")
+        unit = rule["unit"]
+        low = minimum if minimum is not None and rule.get("comparator") not in ("lte", "lt") else None
+        high = maximum if maximum is not None and rule.get("comparator") not in ("gte", "gt") else None
+        if low is not None and high is not None:
+            expected = f"nên từ {low:g} đến {high:g} {unit}"
+        elif low is not None:
+            expected = f"nên {'trên' if rule.get('comparator') == 'gt' else 'ít nhất'} {low:g} {unit}"
+        elif high is not None:
+            expected = f"nên {'dưới' if rule.get('comparator') == 'lt' else 'không quá'} {high:g} {unit}"
+        else:
+            expected = ""
         thresholds.append({
             "nutrient": rule.get("label", key),
             "value": value,
@@ -163,8 +167,10 @@ def calculate_nutrition(recipe: dict[str, Any], rules: list[dict[str, Any]] | No
             "minimum": minimum,
             "maximum": maximum,
             "status": status,
-            "message": (f"Đạt ngưỡng {code}" if code else "Đạt ngưỡng demo") if passed
-            else f"Cần xem lại (mục tiêu {' và '.join(expected)})",
+            # plain words for the report reader; the rule code stays in the reference data
+            "message": "Đạt mức khuyến nghị" if passed
+            else "Chưa có số liệu để đánh giá" if value is None
+            else f"Nên xem lại: {expected}".rstrip(": "),
         })
     return {
         "totals": rounded_totals,
