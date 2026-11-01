@@ -43,5 +43,41 @@ export async function getIngredients(month: number, hometown?: string): Promise<
 }
 
 export const appMode = demoMode ? "demo" : "live";
-export function restoreProfile(): Profile | null { try { const raw = localStorage.getItem("fresh-citrus.profile-draft"); return raw ? { ...defaultProfile, ...JSON.parse(raw) as Profile } : null; } catch { return null; } }
-export function persistProfile(profile: Profile): void { localStorage.setItem("fresh-citrus.profile-draft", JSON.stringify(profile)); }
+const PROFILE_COMPLETED_KEY = "fresh-citrus.profile-completed";
+
+export function isProfileCompleted(userId?: string): boolean {
+  try {
+    const key = userId ? `${PROFILE_COMPLETED_KEY}-${userId}` : PROFILE_COMPLETED_KEY;
+    return localStorage.getItem(key) === "true";
+  } catch {
+    return false;
+  }
+}
+
+export function markProfileCompleted(userId?: string): void {
+  try {
+    const key = userId ? `${PROFILE_COMPLETED_KEY}-${userId}` : PROFILE_COMPLETED_KEY;
+    localStorage.setItem(key, "true");
+  } catch { /* storage unavailable */ }
+}
+
+export function restoreProfile(userId?: string): Profile | null {
+  try {
+    const key = userId ? `fresh-citrus.profile-${userId}` : "fresh-citrus.profile-draft";
+    const raw = localStorage.getItem(key) || (userId ? localStorage.getItem("fresh-citrus.profile-draft") : null);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<Profile>;
+    if (parsed.notes === "Tiền đái tháo đường" && parsed.allergies?.includes("Sữa") && parsed.dislikes?.includes("Chuối")) {
+      return { ...defaultProfile, allergies: [], dislikes: [], preferences: [], notes: "", healthRestrictionStatus: "no" };
+    }
+    return { ...defaultProfile, ...parsed };
+  } catch {
+    return null;
+  }
+}
+export function persistProfile(profile: Profile, userId?: string): void {
+  try {
+    const key = userId ? `fresh-citrus.profile-${userId}` : "fresh-citrus.profile-draft";
+    localStorage.setItem(key, JSON.stringify(profile));
+  } catch { /* storage unavailable */ }
+}
