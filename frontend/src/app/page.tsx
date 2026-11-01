@@ -18,6 +18,7 @@ import { EmptyWorkspace } from "@/features/workspace/empty-workspace";
 import { IngredientPicker, type CatalogStatus } from "@/features/workspace/ingredient-picker";
 import { LibraryView } from "@/features/workspace/library-view";
 import { Processing } from "@/features/workspace/processing";
+import { scrollWithin } from "@/lib/scroll";
 import { PromptBox } from "@/features/workspace/prompt-box";
 import { ReportView } from "@/features/workspace/report-view";
 import { getIngredients, getSession, isProfileCompleted, logout, markProfileCompleted, persistProfile, restoreProfile } from "@/lib/api";
@@ -63,7 +64,7 @@ export default function Home() {
     setToast({ text, tone });
     toastTimer.current = window.setTimeout(() => setToast(null), tone === "error" ? 6000 : 4200);
   }, []);
-  const scrollToReport = () => window.setTimeout(() => reportSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 120);
+  const scrollToReport = () => window.setTimeout(() => scrollWithin(reportSectionRef.current, "start"), 120);
 
   // eslint-disable-next-line react-hooks/set-state-in-effect -- hydrate profile from localStorage on mount
   useEffect(() => { const saved = restoreProfile(); if (saved) setProfile(saved); profileHydrated.current = true; }, []);
@@ -252,7 +253,7 @@ export default function Home() {
         : workspace;
 
   return (
-    <main className="h-dvh w-full overflow-hidden bg-cream xl:p-4">
+    <main className="h-dvh w-full overflow-clip bg-cream xl:p-4">
       <div className="flex h-full min-h-0 gap-4">
         <Sidebar {...sidebarProps} />
         <section className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-card xl:rounded-panel xl:border xl:border-line xl:shadow-card">

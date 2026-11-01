@@ -3,6 +3,7 @@
 import { Fragment, useEffect, useRef, type ReactNode } from "react";
 import { Badge } from "@/components/ui/badge";
 import type { ChatAction, ChatCard, NutritionKey } from "@/lib/chat-api";
+import { scrollWithin } from "@/lib/scroll";
 import type { ChatMessage } from "./use-chat";
 
 const COLUMNS: { key: NutritionKey; label: string; unit: string }[] = [
@@ -26,7 +27,7 @@ type Props = {
 export function ChatThread({ messages, onAction, onRetry, onCopy, busy }: Props) {
   const endRef = useRef<HTMLDivElement>(null);
   const last = messages[messages.length - 1];
-  useEffect(() => { endRef.current?.scrollIntoView({ block: "end", behavior: "smooth" }); }, [messages.length, last?.text.length, last?.state]);
+  useEffect(() => { scrollWithin(endRef.current, "end"); }, [messages.length, last?.text.length, last?.state]);
 
   return (
     <section aria-label="Cuộc trò chuyện với trợ lý dinh dưỡng">
