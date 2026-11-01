@@ -56,6 +56,14 @@ class ReportRequest(BaseModel):
     model_config = {"populate_by_name": True}
 
 
+SeasonStatus = Literal["in_season", "year_round", "out_of_season", "not_seasonal", "unknown"]
+
+
+class IngredientSeason(BaseModel):
+    status: SeasonStatus = "unknown"
+    months: list[int] = Field(default_factory=list, max_length=12)
+
+
 class ReportIngredient(BaseModel):
     ingredient_id: str
     name: str
@@ -65,6 +73,55 @@ class ReportIngredient(BaseModel):
     source_label: str | None = None
     source_region: Literal["VN", "international", "internal", "unknown"] = "unknown"
     source_per_100g: dict[str, float | None] = Field(default_factory=dict)
+    season: IngredientSeason | None = None
+    substitution_for: str | None = Field(default=None, max_length=60)
+
+
+class ProfileSnapshot(BaseModel):
+    gender: str | None = None
+    age: int | None = None
+    bmi: float | None = None
+    bmi_category: str | None = None
+    allergies: list[str] = Field(default_factory=list, max_length=8)
+    preferences: list[str] = Field(default_factory=list, max_length=8)
+    dislikes: list[str] = Field(default_factory=list, max_length=8)
+
+
+class ScoreAdjustment(BaseModel):
+    label: str
+    points: int
+
+
+class PersonalFitScore(BaseModel):
+    value: int = Field(ge=0, le=100)
+    breakdown: list[ScoreAdjustment] = Field(default_factory=list)
+
+
+class ReportScores(BaseModel):
+    personal_fit: PersonalFitScore | None = None
+    seasonal: int | None = Field(default=None, ge=0, le=100)
+    season_month: int | None = Field(default=None, ge=1, le=12)
+
+
+class AllergenCheck(BaseModel):
+    checked: list[str] = Field(default_factory=list, max_length=8)
+    conflicts: list[str] = Field(default_factory=list, max_length=8)
+    checked_ingredients: int = 0
+
+
+class PrepStep(BaseModel):
+    title: str = Field(max_length=60)
+    detail: str
+    minutes: float | None = None
+    kind: str = "other"
+
+
+class ReferenceRange(BaseModel):
+    nutrient: str
+    unit: str
+    minimum: float | None = None
+    maximum: float | None = None
+    basis: str
 
 
 class NutritionTotals(BaseModel):
@@ -120,6 +177,15 @@ class NutritionReportDocument(BaseModel):
     missing_data: list[str] = Field(default_factory=list, max_length=5)
     data_coverage: float = Field(ge=0, le=1)
     decision: ReportDecision
+    profile_snapshot: ProfileSnapshot | None = None
+    scores: ReportScores | None = None
+    allergen_check: AllergenCheck | None = None
+    steps: list[PrepStep] = Field(default_factory=list, max_length=6)
+    prep_minutes: int | None = None
+    serving_ml: int | None = None
+    meal_context: str | None = None
+    reference_ranges: list[ReferenceRange] = Field(default_factory=list, max_length=8)
+    data_checks: list[str] = Field(default_factory=list, max_length=5)
     quality_label: str = "Bản thử nghiệm nội bộ – chưa được chuyên gia dinh dưỡng thẩm định."
     ai_metadata: dict[str, Any] = Field(default_factory=dict)
     disclaimer: str = "Thông tin chỉ nhằm mục đích tham khảo, không thay thế chẩn đoán hoặc tư vấn y khoa."

@@ -1,3 +1,5 @@
+import type { ReportDetail } from "./report-detail";
+
 export type GenerationStatus = "idle" | "generating" | "completed" | "review" | "blocked" | "error" | "stopped";
 
 export type ActivityLevel = "sedentary" | "light" | "moderate" | "active";
@@ -19,6 +21,8 @@ export type Report = {
   steps: string[]; tools: string[]; reason: string; warning: string; sources: string[]; version: number;
   pdfUrl?: string; threadId?: string; runId?: string; dataCoverage?: number;
   qualityLabel?: string; aiProvider?: string; aiModel?: string;
+  /** Personalised analysis (scores, ranges, seasons). Missing on reports made before it existed. */
+  detail?: ReportDetail | null;
 };
 
 export type RecipeProposal = {

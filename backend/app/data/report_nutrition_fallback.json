@@ -1,6 +1,7 @@
 [
   {
     "ingredient_id": "sua-dau-nanh",
+    "category": "liquid",
     "name": "Sữa đậu nành không đường",
     "aliases": ["sữa đậu nành", "soy milk"],
     "source_label": "USDA FoodData Central (fallback quốc tế)",
@@ -10,6 +11,7 @@
   },
   {
     "ingredient_id": "yen-mach",
+    "category": "other",
     "name": "Yến mạch",
     "aliases": ["yến mạch", "oats"],
     "source_label": "USDA FoodData Central (fallback quốc tế)",
@@ -19,6 +21,7 @@
   },
   {
     "ingredient_id": "hat-chia",
+    "category": "seed",
     "name": "Hạt chia",
     "aliases": ["hạt chia", "chia seeds"],
     "source_label": "USDA FoodData Central (fallback quốc tế)",

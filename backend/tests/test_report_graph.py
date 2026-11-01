@@ -61,6 +61,12 @@ class ReportGraphTests(unittest.TestCase):
             [item["ingredient_id"] for item in result["report_document"]["ingredients"]],
             ["cam", "yen-mach", "hat-chia"],
         )
+        document = result["report_document"]
+        self.assertEqual(document["profile_snapshot"]["gender"], "Nữ")
+        self.assertEqual(document["allergen_check"]["conflicts"], [])
+        self.assertEqual(len(document["steps"]), len(document["preparation_steps"]))
+        self.assertIn(document["ingredients"][1]["season"]["status"], {"not_seasonal", "unknown"})
+        self.assertGreaterEqual(document["scores"]["personal_fit"]["value"], 0)
         pdf_path = Path(result["pdf_metadata"]["path"])
         reader = PdfReader(pdf_path)
         self.assertEqual(len(reader.pages), 2)

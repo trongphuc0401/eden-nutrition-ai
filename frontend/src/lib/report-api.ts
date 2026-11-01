@@ -1,17 +1,18 @@
 import type { GenerationInput } from "./contracts";
 import type { PendingConfirmation, Profile, RecipeProposal, Report } from "./types";
 import { apiUrl, httpErrorMessage, NETWORK_ERROR } from "./api";
+import { buildReportDetail, type DocumentDetail } from "./report-detail";
 
 type Created = { report_id: string; thread_id: string; run_id: string; status: string };
-type ReportDocument = {
+type ReportDocument = DocumentDetail & {
   report_id: string;
   created_at: string;
   title: string;
-  ingredients: Array<{ name: string; amount: number; unit: string }>;
+  ingredients: DocumentDetail["ingredients"];
   preparation_steps: string[];
   warning: string;
   summary: string;
-  totals: { calories: number | null; protein: number | null; carbohydrate: number | null; fat: number | null; fiber: number | null; sugar: number | null };
+  totals: { calories: number | null; protein: number | null; carbohydrate: number | null; fat: number | null; fiber: number | null; sugar: number | null; sodium?: number | null };
   sources: string[];
   data_coverage: number;
   decision: "pass" | "review" | "reject";
@@ -88,7 +89,9 @@ function toReport(status: Status): Report {
     ingredients: document.ingredients.map((item) => ({
       name: item.name,
       amount: `${item.amount} ${item.unit}`,
-      purpose: "Nguyên liệu do người dùng chọn; số liệu truy xuất từ nguồn trên 100 g",
+      purpose: item.substitution_for
+        ? `Thay ${item.substitution_for} · ${item.source_label ?? "số liệu trên 100 g"}`
+        : item.source_label ?? "Số liệu truy xuất từ nguồn trên 100 g",
       used: true,
     })),
     nutrition: {
@@ -112,6 +115,7 @@ function toReport(status: Status): Report {
     qualityLabel: document.quality_label,
     aiProvider: document.ai_metadata?.ai_provider,
     aiModel: document.ai_metadata?.ai_model,
+    detail: buildReportDetail(document),
   };
 }
 

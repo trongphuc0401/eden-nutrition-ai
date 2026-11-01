@@ -6,12 +6,18 @@ import { Button, buttonClass } from "@/components/ui/button";
 import { ContentImage } from "@/components/ui/content-image";
 import { Icon } from "@/components/ui/icon";
 import type { Report } from "@/lib/types";
+import { BalanceRadar } from "./report/balance-radar";
+import { NutrientRangeBars } from "./report/nutrient-range-bars";
+import { PrepSteps, ProfileChips, ScoreTiles, TrustFooter } from "./report/report-summary";
+import { IngredientSeasonTable, SeasonCalendar } from "./report/season-calendar";
 
-const TABS = [{ id: "recipe", label: "Công thức" }, { id: "nutrition", label: "Dinh dưỡng & gợi ý" }] as const;
+const TABS = [{ id: "recipe", label: "Công thức" }, { id: "nutrition", label: "Phân tích cá nhân hóa" }] as const;
 type Tab = (typeof TABS)[number]["id"];
 
 export function ReportView({ report, hometown, onToggleSaved, onCopy }: { report: Report; hometown: string; onToggleSaved: () => void; onCopy: (text: string) => void }) {
   const [tab, setTab] = useState<Tab>("recipe");
+  const detail = report.detail ?? null;
+  const inSeason = detail?.ingredients.some((item) => item.season.status === "in_season");
   const tabRefs = useRef<Record<Tab, HTMLButtonElement | null>>({ recipe: null, nutrition: null });
   const nutrients: [string, number | null, string][] = [
     ["Năng lượng", report.nutrition.calories, "kcal"], ["Protein", report.nutrition.protein, "g"], ["Carbohydrate", report.nutrition.carbs, "g"],
@@ -32,9 +38,14 @@ export function ReportView({ report, hometown, onToggleSaved, onCopy }: { report
       <div className="p-4 sm:p-6">
         <header className="flex flex-col gap-4 border-b border-line pb-5 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0">
-            <Badge tone={report.decision === "pass" ? "good" : "warn"}>{report.decision === "pass" ? "Đã đạt kiểm tra" : "Cần xem xét"}</Badge>
+            <span className="flex flex-wrap gap-2">
+              <Badge tone={report.decision === "pass" ? "good" : "warn"}>{report.decision === "pass" ? "Đã đạt kiểm tra" : "Cần xem xét"}</Badge>
+              {detail && inSeason && <Badge tone="good"><Icon name="leaf" className="size-3.5" />Đang vào mùa: Tháng {detail.month}</Badge>}
+            </span>
             <h2 id={`report-${report.id}`} className="mt-3 text-2xl font-semibold text-strong">{report.name}</h2>
-            <p className="mt-1 text-sm text-muted">1 khẩu phần · {report.createdAt} · Phiên bản {report.version}</p>
+            <p className="mt-1 text-sm text-muted">
+              {detail?.servingMl ? `≈ ${detail.servingMl} ml · ` : ""}{detail?.servings ?? 1} khẩu phần{detail?.mealContext ? ` · ${detail.mealContext.toLowerCase()}` : ""} · {report.createdAt} · Phiên bản {report.version}
+            </p>
           </div>
           <div className="flex flex-wrap gap-2">
             <Button size="sm" onClick={() => onCopy(report.name)}><Icon name="copy" className="size-4" />Sao chép</Button>
@@ -64,11 +75,11 @@ export function ReportView({ report, hometown, onToggleSaved, onCopy }: { report
                   ))}</ul>
                 </Card>
                 {report.tools.length > 0 && <Card title="Dụng cụ chuẩn bị"><ul className="flex flex-wrap gap-2">{report.tools.map((tool) => <li key={tool} className="rounded-lg bg-orange-soft px-3 py-2 text-sm">{tool}</li>)}</ul></Card>}
-                <Card title="Cách thực hiện">
+                {detail?.steps.length ? <PrepSteps detail={detail} /> : <Card title="Cách thực hiện">
                   <ol className="space-y-4">{report.steps.map((step, index) => (
                     <li key={step} className="flex gap-3"><span className="grid size-7 shrink-0 place-items-center rounded-full bg-orange-soft text-sm font-semibold text-action">{index + 1}</span><p className="pt-0.5 text-sm leading-6 text-muted">{step}</p></li>
                   ))}</ol>
-                </Card>
+                </Card>}
               </div>
               <div className="space-y-4">
                 <Card title="Tóm tắt một khẩu phần">
@@ -79,6 +90,21 @@ export function ReportView({ report, hometown, onToggleSaved, onCopy }: { report
                 {report.warning && <div className="rounded-xl border border-yellow-line bg-yellow-soft p-4 text-sm leading-6 text-yellow-text"><strong className="block text-strong">Lưu ý</strong>{report.warning}</div>}
                 <Card title="Vì sao phù hợp"><p className="text-sm leading-6 text-muted">{report.reason}</p></Card>
               </div>
+            </div>
+          ) : detail ? (
+            <div className="space-y-5">
+              {detail.profile && <ProfileChips profile={detail.profile} />}
+              <ScoreTiles detail={detail} />
+              <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,22rem)]">
+                <NutrientRangeBars rows={detail.nutrients} />
+                <BalanceRadar rows={detail.nutrients} />
+              </div>
+              <SeasonCalendar detail={detail} />
+              <IngredientSeasonTable detail={detail} />
+              <Card title="Nguồn và thông tin đã dùng">
+                <ul className="list-disc space-y-2 pl-5 text-sm text-muted">{report.sources.map((source) => <li key={source}>{source}</li>)}<li>Hồ sơ tại thời điểm tạo · {hometown}</li></ul>
+              </Card>
+              <TrustFooter detail={detail} coverage={report.dataCoverage} />
             </div>
           ) : (
             <div className="space-y-5">

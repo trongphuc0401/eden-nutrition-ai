@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from langgraph.graph import END, START, StateGraph
@@ -22,6 +22,9 @@ from app.services import report_calculation_service
 from app.services.report_data_service import reference_metadata, resolve_ingredients, slugify
 from app.services.recipe_generation_service import blocked_ingredient_ids, generate_recipe_proposal
 from app.services.recipe_optimizer import optimize_amounts
+from app.services import report_enrichment as enrichment
+
+VIETNAM_TZ = timezone(timedelta(hours=7))
 
 
 def _profile_terms(profile: dict[str, Any], keys: tuple[str, ...]) -> list[str]:
@@ -336,14 +339,37 @@ def _compose(state: NutritionReportState, force_warning: bool) -> dict[str, Any]
     calculation = state["nutrition_calculation"]
     warnings = state.get("warnings", [])
     decision = "review" if force_warning else state.get("decision", "pass")
+    profile = state.get("profile", {})
+    analysis = state.get("profile_analysis", {})
+    snapshot = enrichment.profile_snapshot(profile, analysis)
+    month = datetime.now(VIETNAM_TZ).month
     ingredients = [
         {
             "ingredient_id": item["ingredient_id"], "name": item["name"], "amount": item["amount"],
             "unit": item["unit"], "source": item.get("source"), "source_label": item.get("source_label"),
             "source_region": item.get("source_region", "unknown"), "source_per_100g": item.get("per_100g", {}),
+            "season": enrichment.ingredient_season(item, month),
+            "substitution_for": enrichment.substitution_for(item, snapshot["allergies"]),
         }
         for item in recipe["ingredients"][:8]
     ]
+    allergy_blocked = blocked_ingredient_ids({"allergies": snapshot["allergies"]}) if snapshot["allergies"] else set()
+    allergens = enrichment.allergen_check(snapshot["allergies"], recipe["ingredients"][:8], allergy_blocked)
+    data_checks = enrichment.consistency_checks(calculation["totals"])
+    if data_checks:
+        decision = "review"
+        warnings = [*warnings, *data_checks]
+    plan = analysis.get("energy_plan")
+    scores = {
+        "personal_fit": enrichment.personal_fit_score(
+            calculation["thresholds"], len(allergens["conflicts"]), calculation["coverage"],
+            calculation["totals"].get("calories"), plan,
+        ),
+        "seasonal": enrichment.seasonal_score(
+            [(float(item["amount"]), item["season"]["status"]) for item in ingredients]
+        ),
+        "season_month": month,
+    }
     unique_sources = []
     for item in ingredients:
         source = item.get("source_label") or "Chưa có nguồn"
@@ -398,6 +424,15 @@ def _compose(state: NutritionReportState, force_warning: bool) -> dict[str, Any]
         missing_data=calculation["missing_data"][:5],
         data_coverage=calculation["coverage"],
         decision=decision,
+        profile_snapshot=snapshot,
+        scores=scores,
+        allergen_check=allergens,
+        steps=enrichment.structured_steps(recipe["steps"]),
+        prep_minutes=recipe.get("prep_minutes"),
+        serving_ml=enrichment.serving_ml(recipe["ingredients"], recipe["servings"]),
+        meal_context="Bữa phụ",
+        reference_ranges=enrichment.reference_ranges(calculation["totals"], plan),
+        data_checks=data_checks[:5],
         ai_metadata={
             key: state.get("execution_metadata", {}).get(key)
             for key in ("ai_provider", "ai_model", "prompt_version", "repair_count")
