@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 
 from app.api.auth_routes import require_user
 from app.schemas.profile_schema import ProfileInput
+from app.services.chat.models import FREE_CHAT_MODELS, default_chat_model, llm_chat_enabled, resolve_chat_model
 from app.services.chat.service import run_turn
 from app.services.chat.store import chat_store
 
@@ -18,6 +19,7 @@ class ChatRequest(BaseModel):
     thread_id: str | None = Field(default=None, max_length=64)
     profile: ProfileInput | None = None
     selectedIngredientIds: list[str] = Field(default_factory=list, max_length=8)
+    model: str | None = Field(default=None, max_length=64)
 
 
 class CreateThreadRequest(BaseModel):
@@ -29,11 +31,18 @@ class UpdateThreadRequest(BaseModel):
     report_id: str | None = Field(default=None, max_length=64)
 
 
+@router.get("/models")
+def chat_models(user: dict = CurrentUser) -> dict:
+    # `enabled` is false in template mode: answers then come from data only and the choice has no effect
+    return {"models": FREE_CHAT_MODELS, "default": default_chat_model(), "enabled": llm_chat_enabled()}
+
+
 @router.post("")
 def chat(request: ChatRequest, user: dict = CurrentUser) -> StreamingResponse:
     profile = request.profile.model_dump() if request.profile else {}
     stream = run_turn(owner_id=user["id"], message=request.message.strip(), profile=profile,
-                      thread_id=request.thread_id, selected_ids=request.selectedIngredientIds)
+                      thread_id=request.thread_id, selected_ids=request.selectedIngredientIds,
+                      model=resolve_chat_model(request.model))
     return StreamingResponse(stream, media_type="text/event-stream",
                              headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 

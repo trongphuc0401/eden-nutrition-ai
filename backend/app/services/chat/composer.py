@@ -278,12 +278,12 @@ SYSTEM_PROMPT = (
 )
 
 
-def stream_answer(answer: Answer, message: str, history: list[dict[str, Any]]) -> Iterator[str]:
+def stream_answer(answer: Answer, message: str, history: list[dict[str, Any]], model: str | None = None) -> Iterator[str]:
     """Yield answer text chunks: LLM stream in zai mode, otherwise the template text in small pieces."""
     if settings.chat_mode.strip().lower() == "zai" and settings.zai_api_key:
         produced = False
         try:
-            for chunk in _zai_stream(answer, message, history):
+            for chunk in _zai_stream(answer, message, history, model or settings.zai_model):
                 produced = True
                 yield chunk
             if produced:
@@ -302,11 +302,13 @@ def _chunks(text: str, size: int = 24) -> Iterator[str]:
         yield " ".join(words[start:start + size]) + (" " if start + size < len(words) else "")
 
 
-def _zai_stream(answer: Answer, message: str, history: list[dict[str, Any]]) -> Iterator[str]:
+def _zai_stream(answer: Answer, message: str, history: list[dict[str, Any]], model: str) -> Iterator[str]:
     turns = [{"role": item["role"], "content": item["content"][:1500]} for item in history[-settings.chat_history_messages:]]
     payload = {
-        "model": settings.zai_model,
+        "model": model,
         "stream": True,
+        # thinking adds ~30 s before the first word on the free flash models; the answer only rewrites a draft
+        "thinking": {"type": "disabled"},
         "temperature": 0.3,
         "messages": [
             {"role": "system", "content": SYSTEM_PROMPT},

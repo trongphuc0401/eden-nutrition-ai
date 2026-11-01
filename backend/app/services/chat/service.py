@@ -36,7 +36,7 @@ def sse(event: str, data: dict[str, Any]) -> str:
 
 
 def run_turn(*, owner_id: str, message: str, profile: dict[str, Any], thread_id: str | None,
-             selected_ids: list[str]) -> Iterator[str]:
+             selected_ids: list[str], model: str | None = None) -> Iterator[str]:
     try:
         if not thread_id or not chat_store.owns(thread_id, owner_id):
             thread_id = chat_store.create_thread(owner_id, message[:80])
@@ -64,7 +64,7 @@ def run_turn(*, owner_id: str, message: str, profile: dict[str, Any], thread_id:
 
         answer = compose(intent, message, profile, catalog_ids(datetime.now().month, profile.get("hometown")), selected_ids)
         text_parts: list[str] = []
-        for chunk in stream_answer(answer, message, history):
+        for chunk in stream_answer(answer, message, history, model):
             text_parts.append(chunk)
             yield sse("delta", {"text": chunk})
         if answer.cards:
@@ -74,9 +74,9 @@ def run_turn(*, owner_id: str, message: str, profile: dict[str, Any], thread_id:
         context = data_context()
         message_id = chat_store.append(thread_id, "assistant", "".join(text_parts), intent.kind, {
             "ingredient_ids": answer.ingredient_ids, "cards": answer.cards, "actions": answer.actions,
-            "from_history": intent.from_history, **context,
+            "from_history": intent.from_history, "model": model, **context,
         })
-        yield sse("done", {"message_id": message_id, "intent": intent.kind, "thread_id": thread_id, **context})
+        yield sse("done", {"message_id": message_id, "intent": intent.kind, "thread_id": thread_id, "model": model, **context})
     except Exception as error:  # the stream must end with a readable event, never a dropped connection
         logger.exception("chat turn failed")
         yield sse("error", {"message": "Trợ lý chưa trả lời được vì lỗi hệ thống. Câu hỏi của bạn vẫn được giữ, bạn có thể thử lại.",

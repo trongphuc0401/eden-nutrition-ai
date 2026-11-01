@@ -222,3 +222,27 @@ def test_thread_lifecycle_and_multi_sessions(client) -> None:
     assert get_del.status_code == 404
 
 
+
+
+def test_models_endpoint_lists_only_free_models(client) -> None:
+    body = client.get("/v1/chat/models").json()
+    ids = [model["id"] for model in body["models"]]
+    assert ids == ["glm-4.7-flash", "glm-4.5-flash"]
+    assert body["default"] in ids
+
+
+def test_chosen_model_is_sent_and_paid_models_are_refused(client, monkeypatch) -> None:
+    monkeypatch.setattr(settings, "chat_mode", "zai")
+    monkeypatch.setattr(settings, "zai_api_key", "test-key")
+    sent: list[str] = []
+
+    def fake_stream(answer, message, history, model):
+        sent.append(model)
+        yield "ok"
+
+    with patch("app.services.chat.composer._zai_stream", fake_stream):
+        for requested in ("glm-4.5-flash", "glm-5.3"):
+            response = client.post("/v1/chat", json={"message": "dinh dưỡng của chuối", "profile": PROFILE, "model": requested})
+            assert response.status_code == 200
+    assert sent[0] == "glm-4.5-flash"
+    assert sent[1] != "glm-5.3" and sent[1] in {"glm-4.7-flash", "glm-4.5-flash"}
