@@ -19,7 +19,7 @@ export type ChatEvent =
   | { event: "delta"; data: { text: string } }
   | { event: "cards"; data: { cards: ChatCard[] } }
   | { event: "actions"; data: { actions: ChatAction[] } }
-  | { event: "done"; data: { message_id: number | null; intent: string; thread_id: string; data_source?: string; dataset_version?: string | null } }
+  | { event: "done"; data: { message_id: number | null; intent: string; thread_id: string; model?: string | null; data_source?: string; dataset_version?: string | null } }
   | { event: "error"; data: { message: string; code?: string } };
 
 export type StoredMessage = {
@@ -27,7 +27,22 @@ export type StoredMessage = {
   metadata: { cards?: ChatCard[]; actions?: ChatAction[]; data_source?: string; dataset_version?: string | null };
 };
 
-type SendInput = { message: string; threadId: string | null; profile: Profile; selectedIds: string[] };
+type SendInput = { message: string; threadId: string | null; profile: Profile; selectedIds: string[]; model?: string | null };
+
+export type ChatModel = { id: string; label: string; description: string };
+/** `enabled` is false when the backend answers from data templates only; the model choice then has no effect. */
+export type ChatModelList = { models: ChatModel[]; default: string; enabled: boolean };
+
+/** The free models the backend allows for chat, or null when the list cannot be loaded. */
+export async function fetchChatModels(): Promise<ChatModelList | null> {
+  try {
+    const response = await fetch(`${apiUrl}/v1/chat/models`, { credentials: "include" });
+    if (!response.ok) return null;
+    return (await response.json()) as ChatModelList;
+  } catch {
+    return null;
+  }
+}
 
 /** POST /v1/chat and hand every Server-Sent Event to `onEvent` as it arrives. */
 export async function streamChat(input: SendInput, onEvent: (event: ChatEvent) => void, signal?: AbortSignal): Promise<void> {
@@ -40,6 +55,7 @@ export async function streamChat(input: SendInput, onEvent: (event: ChatEvent) =
       thread_id: input.threadId,
       profile: toApiProfile(input.profile),
       selectedIngredientIds: input.selectedIds.slice(0, 8),
+      model: input.model ?? undefined,
     }),
     signal,
   });

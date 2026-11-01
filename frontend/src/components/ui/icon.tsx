@@ -19,6 +19,7 @@ const paths = {
   alert: "M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z",
   arrowRight: "M5 12h14M13 5l7 7-7 7",
   chevronLeft: "M15 18l-6-6 6-6",
+  chevronDown: "M6 9l6 6 6-6",
   search: "M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM21 21l-4.3-4.3",
   copy: "M9 9h12v12H9zM5 15H3V3h12v2",
   download: "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3",

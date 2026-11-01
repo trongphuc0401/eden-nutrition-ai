@@ -3,10 +3,14 @@
 import { useState, type KeyboardEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
+import { ModelPicker } from "@/features/chat/model-picker";
+import type { ChatModelList } from "@/lib/chat-api";
 
 const SUGGESTIONS = ["Tìm hiểu dinh dưỡng của chuối", "Tạo sinh tố giàu chất xơ với ổi"];
 
-export function PromptBox({ onSubmit, busy, onStop, showSuggestions }: { onSubmit: (prompt: string) => void; busy: boolean; onStop: () => void; showSuggestions: boolean }) {
+type ModelChoice = { list: ChatModelList | null; value: string | null; onChange: (model: string) => void };
+
+export function PromptBox({ onSubmit, busy, onStop, showSuggestions, model }: { onSubmit: (prompt: string) => void; busy: boolean; onStop: () => void; showSuggestions: boolean; model?: ModelChoice }) {
   const [value, setValue] = useState("");
   const submit = () => { if (value.trim() && !busy) { onSubmit(value.trim()); setValue(""); } };
   const keyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -27,7 +31,12 @@ export function PromptBox({ onSubmit, busy, onStop, showSuggestions }: { onSubmi
           ? <Button icon className="size-11 shrink-0" onClick={onStop} aria-label="Dừng câu trả lời"><Icon name="stop" className="size-4" /></Button>
           : <Button variant="primary" icon className="size-11 shrink-0" onClick={submit} disabled={!value.trim()} aria-label="Gửi câu hỏi"><Icon name="send" className="size-4" /></Button>}
       </div>
-      <p className="mt-2 hidden text-xs text-subtle sm:block">Enter để gửi · Shift + Enter để xuống dòng</p>
+      <div className="mt-2 flex items-center justify-between gap-2">
+        <p className="hidden text-xs text-subtle sm:block">Enter để gửi · Shift + Enter để xuống dòng</p>
+        {model?.list && model.value && (
+          <ModelPicker models={model.list.models} value={model.value} onChange={model.onChange} disabled={busy} aiEnabled={model.list.enabled} />
+        )}
+      </div>
     </section>
   );
 }

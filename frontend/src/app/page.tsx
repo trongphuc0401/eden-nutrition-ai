@@ -238,7 +238,8 @@ export default function Home() {
       </div>
       {status !== "generating" && status !== "awaiting_confirmation" && (
         <div className="sticky bottom-0 z-20 mt-auto bg-gradient-to-t from-card via-card/95 to-transparent pt-3">
-          <PromptBox onSubmit={(text) => void chat.send(text)} busy={chat.streaming} onStop={chat.stop} showSuggestions={chat.messages.length === 0 && !currentReport} />
+          <PromptBox onSubmit={(text) => void chat.send(text)} busy={chat.streaming} onStop={chat.stop} showSuggestions={chat.messages.length === 0 && !currentReport}
+            model={{ list: chat.modelList, value: chat.model, onChange: chat.setModel }} />
         </div>
       )}
     </section>

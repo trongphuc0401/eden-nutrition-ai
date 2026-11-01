@@ -5,12 +5,14 @@ import {
   attachReportToThread,
   createThread as apiCreateThread,
   deleteThread as apiDeleteThread,
+  fetchChatModels,
   listThreads,
   loadThread,
   renameThread as apiRenameThread,
   streamChat,
   type ChatAction,
   type ChatCard,
+  type ChatModelList,
   type ChatThreadSummary,
 } from "@/lib/chat-api";
 import type { Profile } from "@/lib/types";
@@ -44,6 +46,16 @@ function writeThread(threadId: string | null): void {
   } catch { /* storage unavailable */ }
 }
 
+const MODEL_KEY = "fresh-citrus.chat-model";
+
+function readModel(): string | null {
+  try { return localStorage.getItem(MODEL_KEY); } catch { return null; }
+}
+
+function writeModel(model: string): void {
+  try { localStorage.setItem(MODEL_KEY, model); } catch { /* storage unavailable */ }
+}
+
 const newId = () => (typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : String(Date.now() + Math.random()));
 
 /** `enabled` once a user is signed in: threads live on the backend per account. */
@@ -53,6 +65,8 @@ export function useChat({ profile, selectedIds, enabled }: { profile: Profile; s
   const [threadTitle, setThreadTitle] = useState<string | null>(null);
   const [threadReportId, setThreadReportId] = useState<string | null>(null);
   const [threads, setThreads] = useState<ChatThreadSummary[]>([]);
+  const [modelList, setModelList] = useState<ChatModelList | null>(null);
+  const [model, setModelState] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const streaming = messages.some((message) => message.state === "streaming");
 
@@ -63,6 +77,24 @@ export function useChat({ profile, selectedIds, enabled }: { profile: Profile; s
       setThreads(list);
     } catch { /* ignore */ }
   }, [enabled]);
+
+  // Free models the backend allows; a saved choice is kept only while it is still on the list
+  useEffect(() => {
+    if (!enabled) return;
+    let active = true;
+    void fetchChatModels().then((list) => {
+      if (!active || !list) return;
+      setModelList(list);
+      const saved = readModel();
+      setModelState(saved && list.models.some((item) => item.id === saved) ? saved : list.default);
+    });
+    return () => { active = false; };
+  }, [enabled]);
+
+  const setModel = useCallback((next: string) => {
+    setModelState(next);
+    writeModel(next);
+  }, []);
 
   // Initial load: fetch thread list and restore active thread from sessionStorage
   useEffect(() => {
@@ -162,7 +194,7 @@ export function useChat({ profile, selectedIds, enabled }: { profile: Profile; s
     const controller = new AbortController();
     abortRef.current = controller;
     try {
-      await streamChat({ message: question, threadId, profile, selectedIds }, (event) => {
+      await streamChat({ message: question, threadId, profile, selectedIds, model }, (event) => {
         switch (event.event) {
           case "thread":
             setThreadId(event.data.thread_id);
@@ -200,7 +232,7 @@ export function useChat({ profile, selectedIds, enabled }: { profile: Profile; s
     } finally {
       abortRef.current = null;
     }
-  }, [profile, selectedIds, threadId, refreshThreads]);
+  }, [profile, selectedIds, threadId, model, refreshThreads]);
 
   const stop = useCallback(() => abortRef.current?.abort(), []);
 
@@ -220,6 +252,9 @@ export function useChat({ profile, selectedIds, enabled }: { profile: Profile; s
     threadTitle,
     threadReportId,
     threads,
+    modelList,
+    model,
+    setModel,
     refreshThreads,
     selectThread,
     newThread,
